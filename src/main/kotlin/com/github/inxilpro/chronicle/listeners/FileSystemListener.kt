@@ -7,6 +7,7 @@ import com.github.inxilpro.chronicle.events.FileRenamedEvent
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
@@ -56,6 +57,11 @@ class FileSystemListener(
     }
 
     private fun isProjectEvent(event: VFileEvent): Boolean {
+        val file = event.file
+        if (file != null && file.isValid) {
+            return ProjectFileIndex.getInstance(project).isInContent(file)
+        }
+        // Fallback to path-based check for events where file is unavailable (e.g., after deletion)
         val projectBasePath = project.basePath ?: return false
         return event.path.startsWith(projectBasePath)
     }

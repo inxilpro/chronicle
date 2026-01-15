@@ -8,6 +8,7 @@ import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.BulkAwareDocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
 
@@ -29,8 +30,7 @@ class DocumentChangeListener(
     }
 
     private fun isProjectFile(file: VirtualFile): Boolean {
-        val projectBasePath = project.basePath ?: return false
-        return file.path.startsWith(projectBasePath)
+        return ProjectFileIndex.getInstance(project).isInContent(file)
     }
 
     override fun dispose() {
