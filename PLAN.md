@@ -220,9 +220,18 @@ class FileSystemListener : BulkFileListener {
 
 ---
 
-### 5. Visible Area — Debounced with PSI Summary
+### 5. Visible Area — Debounced with PSI Summary ✅ IMPLEMENTED
 
-**Registration**: Programmatic on each Editor instance
+**Registration**: Programmatic on each Editor instance via `FileEditorManagerListener`
+
+**Implementation**: `listeners/VisibleAreaTracker.kt`
+
+The following has been implemented:
+- `VisibleAreaTracker` class that listens for file open/close events and attaches `VisibleAreaListener` to each editor
+- Debouncing using `ScheduledExecutorService` with configurable delay (default 500ms)
+- Tracks visible line range and logs `VisibleAreaEvent`
+- Registered via `ActivityTranscriptService.registerListeners()`
+- Uses `ConcurrentHashMap` to track pending debounce jobs per editor
 
 **Challenge**: Need to attach listener when editors open, summarize visible code
 
