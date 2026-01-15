@@ -33,12 +33,11 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     private val debounceTimers: MutableMap<String, ScheduledFuture<*>> = mutableMapOf()
     private val changeListeners: MutableList<TranscriptChangeListener> = CopyOnWriteArrayList()
 
-    var isLogging: Boolean = true
+    var isLogging: Boolean = false
         private set
 
     init {
         thisLogger().info("ActivityTranscriptService initialized for project: ${project.name}")
-        captureInitialState()
         registerListeners()
     }
 
@@ -77,7 +76,11 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     }
 
     fun startLogging() {
+        val shouldCaptureInitialState = events.isEmpty()
         isLogging = true
+        if (shouldCaptureInitialState) {
+            captureInitialState()
+        }
         thisLogger().info("Logging started for project: ${project.name}")
         notifyListeners()
     }
