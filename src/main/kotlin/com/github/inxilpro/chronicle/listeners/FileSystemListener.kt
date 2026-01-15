@@ -8,6 +8,7 @@ import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
@@ -63,8 +64,8 @@ class FileSystemListener(
                 return true
             }
         }
-        val projectBasePath = project.basePath ?: return false
-        return event.path.startsWith(projectBasePath)
+        val contentRoots = ProjectRootManager.getInstance(project).contentRoots
+        return contentRoots.any { root -> event.path.startsWith(root.path) }
     }
 
     override fun dispose() {
