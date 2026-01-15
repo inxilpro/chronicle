@@ -13,4 +13,9 @@
         <postStartupActivity implementation="com.github.inxilpro.chronicle.startup.MyProjectActivity" />
         <projectService serviceImplementation="com.github.inxilpro.chronicle.services.ActivityTranscriptService"/>
     </extensions>
+
+    <projectListeners>
+        <listener class="com.github.inxilpro.chronicle.listeners.FileActivityListener"
+                  topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
+    </projectListeners>
 </idea-plugin>

@@ -64,33 +64,31 @@ Called in service constructor (`init` block) after initialization.
 
 ---
 
-### 2. File Open/Close/Selection — FileEditorManagerListener
+### 2. File Open/Close/Selection — FileEditorManagerListener ✅ IMPLEMENTED
 
 **Registration**: Declarative in `plugin.xml`
 
-```xml
-<projectListeners>
-  <listener class="com.example.FileActivityListener"
-            topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
-</projectListeners>
-```
+**Implementation**: `listeners/FileActivityListener.kt`
 
-**Implementation**:
+The following has been implemented:
+- `FileActivityListener` class in `listeners/FileActivityListener.kt`
+- Listener registered in `plugin.xml` under `<projectListeners>`
+- Handles `fileOpened`, `fileClosed`, and `selectionChanged` events
 
 ```kotlin
 class FileActivityListener(private val project: Project) : FileEditorManagerListener {
-    
+
+    private val transcriptService: ActivityTranscriptService
+        get() = ActivityTranscriptService.getInstance(project)
+
     override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
-        transcriptService.log(FileOpenedEvent(
-            path = file.path,
-            timestamp = Instant.now()
-        ))
+        transcriptService.log(FileOpenedEvent(path = file.path))
     }
-    
+
     override fun fileClosed(source: FileEditorManager, file: VirtualFile) {
-        transcriptService.log(FileClosedEvent(file.path))
+        transcriptService.log(FileClosedEvent(path = file.path))
     }
-    
+
     override fun selectionChanged(event: FileEditorManagerEvent) {
         event.newFile?.let { file ->
             transcriptService.log(FileSelectedEvent(
