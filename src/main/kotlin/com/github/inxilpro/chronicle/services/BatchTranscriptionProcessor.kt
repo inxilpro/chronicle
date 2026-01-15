@@ -26,7 +26,8 @@ class BatchTranscriptionProcessor(
 
     companion object {
         // Whisper requires minimum 1 second of audio (16kHz sample rate)
-        private const val MIN_SAMPLES = 16000
+        // Adding small buffer to account for rounding
+        private const val MIN_SAMPLES = 16100
     }
 
     private val transcriptService: ActivityTranscriptService
