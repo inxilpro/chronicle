@@ -102,39 +102,71 @@ class FileActivityListener(private val project: Project) : FileEditorManagerList
 
 ---
 
-### 3. Selection Tracking — Debounced SelectionListener
+### 3. Selection Tracking — Debounced SelectionListener ✅ IMPLEMENTED
 
 **Registration**: Programmatic via `EditorFactory.getEventMulticaster()`
 
 **Debounce strategy**: 300ms window, log only final selection state
 
+**Implementation**: `listeners/DebouncedSelectionListener.kt`
+
+The following has been implemented:
+- `DebouncedSelectionListener` class that implements `SelectionListener` and `Disposable`
+- Registration via static `register()` method called from `ActivityTranscriptService`
+- Debouncing using `ScheduledExecutorService` with configurable delay (default 300ms)
+- Filters selections to only track the associated project
+- Truncates selected text to 500 characters
+
 ```kotlin
 class DebouncedSelectionListener(
-    private val service: ActivityTranscriptService,
+    private val project: Project,
     private val debounceMs: Long = 300
-) : SelectionListener {
-    
+) : SelectionListener, Disposable {
+
+    private val transcriptService: ActivityTranscriptService
+        get() = ActivityTranscriptService.getInstance(project)
+
     private var pendingJob: ScheduledFuture<*>? = null
-    private val executor = Executors.newSingleThreadScheduledExecutor()
-    
-    override fun selectionChanged(event: SelectionEvent) {
-        pendingJob?.cancel(false)
-        
+    private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+
+    override fun selectionChanged(event: IdeaSelectionEvent) {
         val editor = event.editor
-        val file = FileDocumentManager.getInstance().getFile(editor.document) ?: return
+        val document = editor.document
+        val file = FileDocumentManager.getInstance().getFile(document) ?: return
+
+        if (editor.project != project) return
+
+        pendingJob?.cancel(false)
+
         val selection = editor.selectionModel
-        
         if (selection.hasSelection()) {
-            val snapshot = SelectionSnapshot(
-                file = file.path,
-                startLine = editor.document.getLineNumber(selection.selectionStart) + 1,
-                endLine = editor.document.getLineNumber(selection.selectionEnd) + 1,
-                text = selection.selectedText?.take(500) // truncate for sanity
-            )
-            
+            val filePath = file.path
+            val startLine = document.getLineNumber(selection.selectionStart) + 1
+            val endLine = document.getLineNumber(selection.selectionEnd) + 1
+            val selectedText = selection.selectedText?.take(500)
+
             pendingJob = executor.schedule({
-                service.log(SelectionEvent(snapshot))
+                transcriptService.log(SelectionEvent(
+                    path = filePath,
+                    startLine = startLine,
+                    endLine = endLine,
+                    text = selectedText
+                ))
             }, debounceMs, TimeUnit.MILLISECONDS)
+        }
+    }
+
+    override fun dispose() {
+        pendingJob?.cancel(true)
+        executor.shutdownNow()
+    }
+
+    companion object {
+        fun register(project: Project, parentDisposable: Disposable): DebouncedSelectionListener {
+            val listener = DebouncedSelectionListener(project)
+            EditorFactory.getInstance().eventMulticaster.addSelectionListener(listener, parentDisposable)
+            Disposer.register(parentDisposable, listener)
+            return listener
         }
     }
 }
