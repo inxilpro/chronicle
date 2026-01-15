@@ -24,9 +24,17 @@ import java.util.concurrent.ScheduledFuture
 @Service(Service.Level.PROJECT)
 class ActivityTranscriptService(private val project: Project) : Disposable {
 
+    fun interface TranscriptChangeListener {
+        fun onTranscriptChanged()
+    }
+
     private val events: MutableList<TranscriptEvent> = CopyOnWriteArrayList()
     private var sessionStart: Instant = Instant.now()
     private val debounceTimers: MutableMap<String, ScheduledFuture<*>> = mutableMapOf()
+    private val changeListeners: MutableList<TranscriptChangeListener> = CopyOnWriteArrayList()
+
+    var isLogging: Boolean = true
+        private set
 
     init {
         thisLogger().info("ActivityTranscriptService initialized for project: ${project.name}")
@@ -48,8 +56,10 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     }
 
     fun log(event: TranscriptEvent) {
+        if (!isLogging) return
         events.add(event)
         thisLogger().debug("Logged event: ${event.type} at ${event.timestamp}")
+        notifyListeners()
     }
 
     fun getEvents(): List<TranscriptEvent> = events.toList()
@@ -63,6 +73,31 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
         sessionStart = Instant.now()
         thisLogger().info("Session reset for project: ${project.name}")
         captureInitialState()
+        notifyListeners()
+    }
+
+    fun startLogging() {
+        isLogging = true
+        thisLogger().info("Logging started for project: ${project.name}")
+        notifyListeners()
+    }
+
+    fun stopLogging() {
+        isLogging = false
+        thisLogger().info("Logging stopped for project: ${project.name}")
+        notifyListeners()
+    }
+
+    fun addChangeListener(listener: TranscriptChangeListener) {
+        changeListeners.add(listener)
+    }
+
+    fun removeChangeListener(listener: TranscriptChangeListener) {
+        changeListeners.remove(listener)
+    }
+
+    private fun notifyListeners() {
+        changeListeners.forEach { it.onTranscriptChanged() }
     }
 
     fun setDebounceTimer(eventType: String, timer: ScheduledFuture<*>) {
