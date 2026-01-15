@@ -125,6 +125,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         audioToggleButton.addActionListener {
             audioEnabled = !audioEnabled
             updateAudioToggleButton()
+            updateAudioStatusLabel()
 
             if (audioEnabled && service.isLogging) {
                 startAudioRecording()
@@ -160,6 +161,17 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private fun updateAudioToggleButton() {
         audioToggleButton.text = if (audioEnabled) "Disable Audio" else "Enable Audio"
         audioDeviceCombo.isEnabled = !audioEnabled || !service.isLogging
+    }
+
+    private fun updateAudioStatusLabel() {
+        val state = audioService.getState()
+        audioStatusLabel.text = when (state) {
+            AudioTranscriptionService.RecordingState.STOPPED -> if (audioEnabled) "Enabled" else ""
+            AudioTranscriptionService.RecordingState.INITIALIZING -> "Loading model..."
+            AudioTranscriptionService.RecordingState.RECORDING -> "Recording"
+            AudioTranscriptionService.RecordingState.PROCESSING -> "Processing..."
+            AudioTranscriptionService.RecordingState.ERROR -> "Error: ${audioService.getLastError() ?: "Unknown"}"
+        }
     }
 
     private fun updateAudioState(state: AudioTranscriptionService.RecordingState) {

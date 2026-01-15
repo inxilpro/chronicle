@@ -24,7 +24,7 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
     }
 
     private val audioManager = AudioCaptureManager(
-        minChunkMs = 30_000,
+        minChunkMs = 5_000,
         maxChunkMs = 5 * 60 * 1000,
         silenceThresholdRms = 0.015f,
         silenceDurationMs = 1500
