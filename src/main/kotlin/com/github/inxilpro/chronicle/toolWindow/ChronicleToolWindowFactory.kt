@@ -7,10 +7,12 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
+import com.intellij.ui.CollectionListModel
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
+import com.intellij.util.Alarm
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.time.ZoneId
@@ -31,19 +33,23 @@ class ChronicleToolWindowFactory : ToolWindowFactory {
 
 class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Disposable {
 
+    companion object {
+        private const val MAX_DISPLAYED_EVENTS = 1000
+        private const val REFRESH_DEBOUNCE_MS = 100
+    }
+
     private val service = ActivityTranscriptService.getInstance(project)
-    private val listModel = DefaultListModel<String>()
+    private val listModel = CollectionListModel<String>()
     private val eventList = JBList(listModel)
     private val startStopButton = JButton("Stop")
     private val resetButton = JButton("Reset")
     private val statusLabel = JBLabel()
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
+    private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
+    private var refreshPending = false
 
     private val changeListener = ActivityTranscriptService.TranscriptChangeListener {
-        ApplicationManager.getApplication().invokeLater {
-            refreshList()
-            updateButtonState()
-        }
+        scheduleRefresh()
     }
 
     init {
@@ -58,6 +64,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(statusLabel)
         }
 
+        eventList.fixedCellHeight = JBUI.scale(24)
         eventList.cellRenderer = EventListCellRenderer()
         eventList.selectionMode = ListSelectionModel.SINGLE_SELECTION
 
@@ -85,23 +92,38 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         updateButtonState()
     }
 
-    private fun refreshList() {
-        listModel.clear()
-        service.getEvents().forEach { event ->
-            val time = timeFormatter.format(event.timestamp)
-            listModel.addElement("[$time] ${event.summary()}")
-        }
+    private fun scheduleRefresh() {
+        if (refreshPending) return
+        refreshPending = true
+        refreshAlarm.addRequest({
+            refreshPending = false
+            ApplicationManager.getApplication().invokeLater {
+                refreshList()
+                updateButtonState()
+            }
+        }, REFRESH_DEBOUNCE_MS)
+    }
 
-        if (listModel.size() > 0) {
-            eventList.ensureIndexIsVisible(listModel.size() - 1)
+    private fun refreshList() {
+        val events = service.getEvents()
+        val displayedEvents = events.takeLast(MAX_DISPLAYED_EVENTS)
+        val items = displayedEvents.map { event ->
+            val time = timeFormatter.format(event.timestamp)
+            "[$time] ${event.summary()}"
+        }
+        listModel.replaceAll(items)
+
+        if (listModel.size > 0) {
+            eventList.ensureIndexIsVisible(listModel.size - 1)
         }
     }
 
     private fun updateButtonState() {
         startStopButton.text = if (service.isLogging) "Stop" else "Start"
-        val eventCount = service.getEvents().size
+        val totalEvents = service.getEvents().size
         val status = if (service.isLogging) "Recording" else "Paused"
-        statusLabel.text = "$status • $eventCount events"
+        val truncatedNote = if (totalEvents > MAX_DISPLAYED_EVENTS) " (showing last $MAX_DISPLAYED_EVENTS)" else ""
+        statusLabel.text = "$status • $totalEvents events$truncatedNote"
     }
 
     override fun dispose() {
