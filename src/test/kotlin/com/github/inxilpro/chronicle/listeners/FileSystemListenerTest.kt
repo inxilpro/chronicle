@@ -7,7 +7,6 @@ import com.github.inxilpro.chronicle.events.FileRenamedEvent
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.components.service
-import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 class FileSystemListenerTest : BasePlatformTestCase() {
@@ -17,10 +16,7 @@ class FileSystemListenerTest : BasePlatformTestCase() {
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
-        val sourceRoot = myFixture.tempDirFixture.findOrCreateDir("src")
-        runWriteAction {
-            sourceRoot.createChildData(this, "NewFile.kt")
-        }
+        myFixture.addFileToProject("NewFile.kt", "val x = 1")
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)
@@ -33,16 +29,14 @@ class FileSystemListenerTest : BasePlatformTestCase() {
     fun testFileDeletedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
 
-        val sourceRoot = myFixture.tempDirFixture.findOrCreateDir("src")
-        val file = runWriteAction {
-            sourceRoot.createChildData(this, "ToDelete.kt")
-        }
+        val psiFile = myFixture.addFileToProject("ToDelete.kt", "val x = 1")
+        val virtualFile = psiFile.virtualFile
 
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
         runWriteAction {
-            file.delete(this)
+            virtualFile.delete(this)
         }
 
         val events = service.getEvents()
@@ -56,16 +50,14 @@ class FileSystemListenerTest : BasePlatformTestCase() {
     fun testFileRenamedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
 
-        val sourceRoot = myFixture.tempDirFixture.findOrCreateDir("src")
-        val file = runWriteAction {
-            sourceRoot.createChildData(this, "OldName.kt")
-        }
+        val psiFile = myFixture.addFileToProject("OldName.kt", "val x = 1")
+        val virtualFile = psiFile.virtualFile
 
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
         runWriteAction {
-            file.rename(this, "NewName.kt")
+            virtualFile.rename(this, "NewName.kt")
         }
 
         val events = service.getEvents()
@@ -82,17 +74,15 @@ class FileSystemListenerTest : BasePlatformTestCase() {
     fun testFileMovedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
 
-        val sourceDir = myFixture.tempDirFixture.findOrCreateDir("source")
-        val targetDir = myFixture.tempDirFixture.findOrCreateDir("target")
-        val file = runWriteAction {
-            sourceDir.createChildData(this, "ToMove.kt")
-        }
+        val psiFile = myFixture.addFileToProject("source/ToMove.kt", "val x = 1")
+        val virtualFile = psiFile.virtualFile
+        val targetDir = myFixture.addFileToProject("target/placeholder.txt", "").virtualFile.parent
 
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
         runWriteAction {
-            file.move(this, targetDir)
+            virtualFile.move(this, targetDir)
         }
 
         val events = service.getEvents()
