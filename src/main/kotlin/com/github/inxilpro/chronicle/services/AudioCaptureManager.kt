@@ -107,7 +107,7 @@ class AudioCaptureManager(
                             captureTime = chunkStartTime,
                             durationMs = chunkDuration
                         ))
-                        thisLogger().debug("Buffered audio chunk ($reason): ${audioData.size} bytes, ${chunkDuration}ms")
+                        thisLogger().info("Buffered audio chunk ($reason): ${audioData.size} bytes, ${chunkDuration}ms, queue size: ${audioChunks.size}")
                     }
                     chunkBytes.reset()
                     chunkStartTime = currentTime
@@ -116,19 +116,29 @@ class AudioCaptureManager(
             }
         }
 
+        val finalDuration = System.currentTimeMillis() - chunkStartTime
+        thisLogger().info("Capture loop ended. Final buffer size: ${chunkBytes.size()} bytes, duration: ${finalDuration}ms")
         if (chunkBytes.size() > 0) {
             audioChunks.offer(AudioChunk(
                 data = chunkBytes.toByteArray(),
                 captureTime = chunkStartTime,
-                durationMs = System.currentTimeMillis() - chunkStartTime
+                durationMs = finalDuration
             ))
-            thisLogger().debug("Buffered final audio chunk: ${chunkBytes.size()} bytes")
+            thisLogger().info("Buffered final audio chunk: ${chunkBytes.size()} bytes, ${finalDuration}ms, queue size: ${audioChunks.size}")
         }
     }
 
-    fun pollChunk(): AudioChunk? = audioChunks.poll()
+    fun pollChunk(): AudioChunk? {
+        val chunk = audioChunks.poll()
+        thisLogger().info("pollChunk called, returning chunk: ${chunk != null}, remaining: ${audioChunks.size}")
+        return chunk
+    }
 
-    fun hasChunks(): Boolean = audioChunks.isNotEmpty()
+    fun hasChunks(): Boolean {
+        val has = audioChunks.isNotEmpty()
+        thisLogger().info("hasChunks called, result: $has, queue size: ${audioChunks.size}")
+        return has
+    }
 
     fun listAvailableDevices(): List<AudioDevice> {
         return AudioSystem.getMixerInfo()

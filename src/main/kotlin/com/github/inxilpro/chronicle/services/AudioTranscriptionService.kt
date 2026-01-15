@@ -112,13 +112,21 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
     }
 
     fun stopRecording() {
-        if (state.get() != RecordingState.RECORDING) return
+        thisLogger().info("stopRecording called, current state: ${state.get()}")
+        if (state.get() != RecordingState.RECORDING) {
+            thisLogger().info("stopRecording: not in RECORDING state, returning")
+            return
+        }
 
         setState(RecordingState.PROCESSING)
 
         try {
+            thisLogger().info("Calling audioManager.stopRecording()...")
             audioManager.stopRecording()
+            thisLogger().info("audioManager.stopRecording() completed, hasChunks: ${audioManager.hasChunks()}")
+            thisLogger().info("Calling processor.stopProcessing()...")
             processor?.stopProcessing()
+            thisLogger().info("processor.stopProcessing() completed")
             setState(RecordingState.STOPPED)
             thisLogger().info("Stopped audio recording")
         } catch (e: Exception) {
