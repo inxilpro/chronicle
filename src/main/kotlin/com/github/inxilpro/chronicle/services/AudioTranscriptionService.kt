@@ -23,7 +23,12 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
         ERROR
     }
 
-    private val audioManager = AudioCaptureManager(chunkDurationMs = 5 * 60 * 1000)
+    private val audioManager = AudioCaptureManager(
+        minChunkMs = 30_000,
+        maxChunkMs = 5 * 60 * 1000,
+        silenceThresholdRms = 0.015f,
+        silenceDurationMs = 1500
+    )
     private var processor: BatchTranscriptionProcessor? = null
 
     private val state = AtomicReference(RecordingState.STOPPED)

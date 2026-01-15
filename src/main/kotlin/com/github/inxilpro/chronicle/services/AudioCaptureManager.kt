@@ -3,12 +3,18 @@ package com.github.inxilpro.chronicle.services
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.thisLogger
 import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.sound.sampled.*
 import kotlin.concurrent.thread
+import kotlin.math.sqrt
 
 class AudioCaptureManager(
-    private val chunkDurationMs: Long = 5 * 60 * 1000
+    private val minChunkMs: Long = 30_000,
+    private val maxChunkMs: Long = 5 * 60 * 1000,
+    private val silenceThresholdRms: Float = 0.015f,
+    private val silenceDurationMs: Long = 1500
 ) : Disposable {
 
     private val audioFormat = AudioFormat(16000f, 16, 1, true, false)
@@ -68,24 +74,44 @@ class AudioCaptureManager(
         val buffer = ByteArray(4096)
         val chunkBytes = ByteArrayOutputStream()
         var chunkStartTime = System.currentTimeMillis()
+        var silenceStartTime: Long? = null
 
         while (isRecording) {
             val bytesRead = targetDataLine?.read(buffer, 0, buffer.size) ?: 0
             if (bytesRead > 0) {
                 chunkBytes.write(buffer, 0, bytesRead)
 
-                if (System.currentTimeMillis() - chunkStartTime >= chunkDurationMs) {
+                val currentTime = System.currentTimeMillis()
+                val chunkDuration = currentTime - chunkStartTime
+                val rms = calculateRms(buffer, bytesRead)
+                val isSilence = rms < silenceThresholdRms
+
+                if (isSilence) {
+                    if (silenceStartTime == null) {
+                        silenceStartTime = currentTime
+                    }
+                } else {
+                    silenceStartTime = null
+                }
+
+                val silenceDuration = silenceStartTime?.let { currentTime - it } ?: 0
+                val shouldChunkOnSilence = chunkDuration >= minChunkMs && silenceDuration >= silenceDurationMs
+                val shouldChunkOnMaxDuration = chunkDuration >= maxChunkMs
+
+                if (shouldChunkOnSilence || shouldChunkOnMaxDuration) {
                     val audioData = chunkBytes.toByteArray()
                     if (audioData.isNotEmpty()) {
+                        val reason = if (shouldChunkOnSilence) "silence detected" else "max duration"
                         audioChunks.offer(AudioChunk(
                             data = audioData,
                             captureTime = chunkStartTime,
-                            durationMs = System.currentTimeMillis() - chunkStartTime
+                            durationMs = chunkDuration
                         ))
-                        thisLogger().debug("Buffered audio chunk: ${audioData.size} bytes")
+                        thisLogger().debug("Buffered audio chunk ($reason): ${audioData.size} bytes, ${chunkDuration}ms")
                     }
                     chunkBytes.reset()
-                    chunkStartTime = System.currentTimeMillis()
+                    chunkStartTime = currentTime
+                    silenceStartTime = null
                 }
             }
         }
@@ -165,4 +191,23 @@ class AudioCaptureManager(
         val description: String,
         val vendor: String
     )
+
+    companion object {
+        fun calculateRms(buffer: ByteArray, bytesRead: Int): Float {
+            if (bytesRead < 2) return 0f
+
+            val samples = bytesRead / 2
+            val shortBuffer = ByteBuffer.wrap(buffer, 0, bytesRead)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .asShortBuffer()
+
+            var sumSquares = 0.0
+            for (i in 0 until samples) {
+                val sample = shortBuffer.get(i) / 32768f
+                sumSquares += sample * sample
+            }
+
+            return sqrt(sumSquares / samples).toFloat()
+        }
+    }
 }

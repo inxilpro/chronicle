@@ -2,6 +2,8 @@ package com.github.inxilpro.chronicle.services
 
 import org.junit.Assert.*
 import org.junit.Test
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class AudioCaptureManagerTest {
 
@@ -63,5 +65,67 @@ class AudioCaptureManagerTest {
         val manager = AudioCaptureManager()
         val devices = manager.listAvailableDevices()
         assertNotNull(devices)
+    }
+
+    @Test
+    fun testCalculateRmsWithSilence() {
+        val silentBuffer = ByteArray(1024)
+        val rms = AudioCaptureManager.calculateRms(silentBuffer, silentBuffer.size)
+        assertEquals(0f, rms, 0.001f)
+    }
+
+    @Test
+    fun testCalculateRmsWithMaxAmplitude() {
+        val buffer = ByteBuffer.allocate(4)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .putShort(Short.MAX_VALUE)
+            .putShort(Short.MAX_VALUE)
+            .array()
+
+        val rms = AudioCaptureManager.calculateRms(buffer, buffer.size)
+        assertTrue(rms > 0.99f)
+    }
+
+    @Test
+    fun testCalculateRmsWithMixedSignal() {
+        val buffer = ByteBuffer.allocate(8)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .putShort(16384)
+            .putShort(-16384)
+            .putShort(16384)
+            .putShort(-16384)
+            .array()
+
+        val rms = AudioCaptureManager.calculateRms(buffer, buffer.size)
+        assertEquals(0.5f, rms, 0.01f)
+    }
+
+    @Test
+    fun testCalculateRmsWithEmptyBuffer() {
+        val rms = AudioCaptureManager.calculateRms(byteArrayOf(), 0)
+        assertEquals(0f, rms, 0.001f)
+    }
+
+    @Test
+    fun testCalculateRmsWithSingleByte() {
+        val rms = AudioCaptureManager.calculateRms(byteArrayOf(1), 1)
+        assertEquals(0f, rms, 0.001f)
+    }
+
+    @Test
+    fun testDefaultChunkingParameters() {
+        val manager = AudioCaptureManager()
+        assertFalse(manager.isRecording())
+    }
+
+    @Test
+    fun testCustomChunkingParameters() {
+        val manager = AudioCaptureManager(
+            minChunkMs = 10_000,
+            maxChunkMs = 60_000,
+            silenceThresholdRms = 0.02f,
+            silenceDurationMs = 2000
+        )
+        assertFalse(manager.isRecording())
     }
 }
