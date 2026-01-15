@@ -68,7 +68,7 @@ class VisibleAreaTracker(
         pendingJobs.remove(editor)?.cancel(false)
     }
 
-    private fun logVisibleArea(editor: Editor) {
+    internal fun logVisibleArea(editor: Editor) {
         val document = editor.document
         val file = FileDocumentManager.getInstance().getFile(document) ?: return
 
