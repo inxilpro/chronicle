@@ -29,19 +29,27 @@ Here's a focused implementation summary for the scoped plugin:
 
 ---
 
-### 1. Session Start — Capture Initial State
+### 1. Session Start — Capture Initial State ✅ IMPLEMENTED
 
-**API**: `FileEditorManager` + `EditorColorsManager` (for recent files)
+**API**: `FileEditorManager` + `EditorHistoryManager` (for recent files)
+
+**Implementation**: `ActivityTranscriptService.captureInitialState()`
+
+The following has been implemented:
+- `TranscriptEvent` sealed interface with all event types in `events/TranscriptEvent.kt`
+- `ActivityTranscriptService` project-level service in `services/ActivityTranscriptService.kt`
+- Service registered in `plugin.xml`
+- Initial state capture runs automatically when the service initializes
 
 ```kotlin
 fun captureInitialState(project: Project) {
     val fem = FileEditorManager.getInstance(project)
-    
+
     // Currently open files
     fem.openFiles.forEach { file ->
         log(FileOpenedEvent(file.path, isInitial = true))
     }
-    
+
     // Recent files (last N)
     EditorHistoryManager.getInstance(project)
         .fileList
@@ -52,7 +60,7 @@ fun captureInitialState(project: Project) {
 }
 ```
 
-Call this in service constructor after listener registration.
+Called in service constructor (`init` block) after initialization.
 
 ---
 
