@@ -24,6 +24,11 @@ class BatchTranscriptionProcessor(
     private val processingIntervalMs: Long = 5 * 60 * 1000
 ) : Disposable {
 
+    companion object {
+        // Whisper requires minimum 1 second of audio (16kHz sample rate)
+        private const val MIN_SAMPLES = 16000
+    }
+
     private val transcriptService: ActivityTranscriptService
         get() = ActivityTranscriptService.getInstance(project)
 
@@ -110,10 +115,16 @@ class BatchTranscriptionProcessor(
         val params = whisperParams ?: return
 
         try {
-            val samples = convertBytesToFloats(chunk.data)
+            var samples = convertBytesToFloats(chunk.data)
             if (samples.isEmpty()) {
                 thisLogger().debug("Skipping empty audio chunk")
                 return
+            }
+
+            // Whisper requires at least 1 second of audio (16000 samples at 16kHz)
+            if (samples.size < MIN_SAMPLES) {
+                thisLogger().debug("Padding short audio chunk from ${samples.size} to $MIN_SAMPLES samples")
+                samples = samples.copyOf(MIN_SAMPLES)
             }
 
             val whisper = WhisperJNI()
