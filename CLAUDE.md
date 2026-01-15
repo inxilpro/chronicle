@@ -26,3 +26,10 @@ Only add comments that provide real value. Do not add comments that merely resta
 - Prefer self-documenting code with clear names over comments
 - Keep functions small and focused
 - Use Kotlin idioms (data classes, sealed interfaces, extension functions)
+
+## Testing
+
+- All new features require tests
+- Use `BasePlatformTestCase` for tests that need IntelliJ platform fixtures
+- Test file naming convention: `*Test.kt` (e.g., `VisibleAreaTrackerTest.kt`)
+- Place tests in `src/test/kotlin/` mirroring the main source structure
