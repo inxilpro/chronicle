@@ -196,7 +196,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     }
 
     private fun refreshList() {
-        val events = service.getEvents()
+        val events = service.getEvents().sortedBy { it.timestamp }
         val displayedEvents = events.takeLast(MAX_DISPLAYED_EVENTS)
         val items = displayedEvents.map { event ->
             val time = timeFormatter.format(event.timestamp)
