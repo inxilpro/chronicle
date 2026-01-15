@@ -4,6 +4,8 @@ import com.github.inxilpro.chronicle.events.FileOpenedEvent
 import com.github.inxilpro.chronicle.events.RecentFileEvent
 import com.github.inxilpro.chronicle.events.TranscriptEvent
 import com.github.inxilpro.chronicle.listeners.DebouncedSelectionListener
+import com.github.inxilpro.chronicle.listeners.DocumentChangeListener
+import com.github.inxilpro.chronicle.listeners.FileSystemListener
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
@@ -33,7 +35,9 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
 
     private fun registerListeners() {
         DebouncedSelectionListener.register(project, this)
-        thisLogger().info("Registered DebouncedSelectionListener")
+        DocumentChangeListener.register(project, this)
+        FileSystemListener.register(project, this)
+        thisLogger().info("Registered activity listeners")
     }
 
     override fun dispose() {

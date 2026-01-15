@@ -174,45 +174,82 @@ class DebouncedSelectionListener(
 
 ---
 
-### 4. Document Changes — BulkAwareDocumentListener
+### 4. Document Changes — BulkAwareDocumentListener ✅ IMPLEMENTED
 
-**Registration**: Via `EditorFactory.getEventMulticaster()`
+**Registration**: Via `EditorFactory.getEventMulticaster()` and `VirtualFileManager.VFS_CHANGES`
 
-**Approach**: Use `BulkAwareDocumentListener.Simple` to consolidate rapid changes
+**Implementation**:
+- `listeners/DocumentChangeListener.kt` - Tracks document content changes
+- `listeners/FileSystemListener.kt` - Tracks file system events (create/delete/rename/move)
+
+The following has been implemented:
+- `DocumentChangeListener` class implementing `BulkAwareDocumentListener.Simple`
+- `FileSystemListener` class implementing `BulkFileListener`
+- Both listeners registered programmatically in `ActivityTranscriptService.registerListeners()`
+- Project-scoped filtering to only track changes within the project directory
+- Comprehensive test coverage for both listeners
 
 ```kotlin
 class DocumentChangeListener(
-    private val service: ActivityTranscriptService
-) : BulkAwareDocumentListener.Simple {
-    
+    private val project: Project
+) : BulkAwareDocumentListener.Simple, Disposable {
+
     override fun afterDocumentChange(document: Document) {
         val file = FileDocumentManager.getInstance().getFile(document) ?: return
-        
-        // Log change occurred (not content — that's too verbose)
-        service.log(DocumentChangedEvent(
+        if (!isProjectFile(file)) return
+
+        transcriptService.log(DocumentChangedEvent(
             path = file.path,
             lineCount = document.lineCount
         ))
     }
+
+    companion object {
+        fun register(project: Project, parentDisposable: Disposable): DocumentChangeListener {
+            val listener = DocumentChangeListener(project)
+            EditorFactory.getInstance().eventMulticaster.addDocumentListener(listener, parentDisposable)
+            Disposer.register(parentDisposable, listener)
+            return listener
+        }
+    }
 }
 ```
 
-For file-level changes (create/delete/rename), add `BulkFileListener`:
-
 ```kotlin
-class FileSystemListener : BulkFileListener {
+class FileSystemListener(
+    private val project: Project
+) : BulkFileListener, Disposable {
+
     override fun after(events: List<VFileEvent>) {
         events.forEach { event ->
+            if (!isProjectEvent(event)) return@forEach
+
             when (event) {
-                is VFileCreateEvent -> log(FileCreatedEvent(event.path))
-                is VFileDeleteEvent -> log(FileDeletedEvent(event.path))
+                is VFileCreateEvent -> transcriptService.log(FileCreatedEvent(path = event.path))
+                is VFileDeleteEvent -> transcriptService.log(FileDeletedEvent(path = event.path))
                 is VFilePropertyChangeEvent -> {
                     if (event.propertyName == VirtualFile.PROP_NAME) {
-                        log(FileRenamedEvent(event.oldValue as String, event.newValue as String))
+                        transcriptService.log(FileRenamedEvent(
+                            oldPath = event.oldPath,
+                            newPath = event.path
+                        ))
                     }
                 }
-                is VFileMoveEvent -> log(FileMovedEvent(event.oldPath, event.newPath))
+                is VFileMoveEvent -> transcriptService.log(FileMovedEvent(
+                    oldPath = event.oldPath,
+                    newPath = event.newPath
+                ))
             }
+        }
+    }
+
+    companion object {
+        fun register(project: Project, parentDisposable: Disposable): FileSystemListener {
+            val listener = FileSystemListener(project)
+            val connection = project.messageBus.connect(parentDisposable)
+            connection.subscribe(VirtualFileManager.VFS_CHANGES, listener)
+            Disposer.register(parentDisposable, listener)
+            return listener
         }
     }
 }
