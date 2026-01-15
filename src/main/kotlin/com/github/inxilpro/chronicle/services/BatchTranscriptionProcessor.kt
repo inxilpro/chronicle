@@ -91,6 +91,14 @@ class BatchTranscriptionProcessor(
         scheduledTask?.cancel(false)
         scheduledTask = null
 
+        // Wait for any in-progress processing to complete
+        var waitCount = 0
+        while (processing.get() && waitCount < 50) {
+            thisLogger().info("Waiting for in-progress processing to complete...")
+            Thread.sleep(100)
+            waitCount++
+        }
+
         thisLogger().info("Processing remaining audio chunks...")
         processAllChunks()
         thisLogger().info("Stopped batch transcription processing")
