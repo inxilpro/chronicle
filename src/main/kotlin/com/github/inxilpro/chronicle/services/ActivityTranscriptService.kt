@@ -3,6 +3,8 @@ package com.github.inxilpro.chronicle.services
 import com.github.inxilpro.chronicle.events.FileOpenedEvent
 import com.github.inxilpro.chronicle.events.RecentFileEvent
 import com.github.inxilpro.chronicle.events.TranscriptEvent
+import com.github.inxilpro.chronicle.listeners.DebouncedSelectionListener
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -17,7 +19,7 @@ import java.util.concurrent.ScheduledFuture
  * and provides export functionality for LLM consumption.
  */
 @Service(Service.Level.PROJECT)
-class ActivityTranscriptService(private val project: Project) {
+class ActivityTranscriptService(private val project: Project) : Disposable {
 
     private val events: MutableList<TranscriptEvent> = CopyOnWriteArrayList()
     private var sessionStart: Instant = Instant.now()
@@ -26,6 +28,17 @@ class ActivityTranscriptService(private val project: Project) {
     init {
         thisLogger().info("ActivityTranscriptService initialized for project: ${project.name}")
         captureInitialState()
+        registerListeners()
+    }
+
+    private fun registerListeners() {
+        DebouncedSelectionListener.register(project, this)
+        thisLogger().info("Registered DebouncedSelectionListener")
+    }
+
+    override fun dispose() {
+        debounceTimers.values.forEach { it.cancel(true) }
+        debounceTimers.clear()
     }
 
     fun log(event: TranscriptEvent) {
