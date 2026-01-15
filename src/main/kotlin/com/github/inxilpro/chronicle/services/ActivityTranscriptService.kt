@@ -28,32 +28,17 @@ class ActivityTranscriptService(private val project: Project) {
         captureInitialState()
     }
 
-    /**
-     * Log a transcript event.
-     */
     fun log(event: TranscriptEvent) {
         events.add(event)
         thisLogger().debug("Logged event: ${event.type} at ${event.timestamp}")
     }
 
-    /**
-     * Get all logged events.
-     */
     fun getEvents(): List<TranscriptEvent> = events.toList()
 
-    /**
-     * Get the session start time.
-     */
     fun getSessionStart(): Instant = sessionStart
 
-    /**
-     * Get the project name.
-     */
     fun getProjectName(): String = project.name
 
-    /**
-     * Clear all events and reset the session.
-     */
     fun resetSession() {
         events.clear()
         sessionStart = Instant.now()
@@ -61,30 +46,19 @@ class ActivityTranscriptService(private val project: Project) {
         captureInitialState()
     }
 
-    /**
-     * Store a debounce timer for a specific event type.
-     */
     fun setDebounceTimer(eventType: String, timer: ScheduledFuture<*>) {
         debounceTimers[eventType]?.cancel(false)
         debounceTimers[eventType] = timer
     }
 
-    /**
-     * Cancel a debounce timer for a specific event type.
-     */
     fun cancelDebounceTimer(eventType: String) {
         debounceTimers[eventType]?.cancel(false)
         debounceTimers.remove(eventType)
     }
 
-    /**
-     * Capture the initial state of the project when the session starts.
-     * This includes currently open files and recent files.
-     */
     private fun captureInitialState() {
         val fem = FileEditorManager.getInstance(project)
 
-        // Log currently open files
         fem.openFiles.forEach { file ->
             log(FileOpenedEvent(
                 path = file.path,
@@ -93,7 +67,6 @@ class ActivityTranscriptService(private val project: Project) {
         }
         thisLogger().info("Captured ${fem.openFiles.size} open files")
 
-        // Log recent files (last 20)
         val recentFiles = EditorHistoryManager.getInstance(project)
             .fileList
             .take(20)
@@ -105,9 +78,6 @@ class ActivityTranscriptService(private val project: Project) {
     }
 
     companion object {
-        /**
-         * Get the ActivityTranscriptService instance for a project.
-         */
         fun getInstance(project: Project): ActivityTranscriptService {
             return project.getService(ActivityTranscriptService::class.java)
         }
