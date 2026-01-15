@@ -30,7 +30,11 @@ class DocumentChangeListener(
     }
 
     private fun isProjectFile(file: VirtualFile): Boolean {
-        return ProjectFileIndex.getInstance(project).isInContent(file)
+        if (ProjectFileIndex.getInstance(project).isInContent(file)) {
+            return true
+        }
+        val projectBasePath = project.basePath ?: return false
+        return file.path.startsWith(projectBasePath)
     }
 
     override fun dispose() {

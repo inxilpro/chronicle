@@ -59,9 +59,10 @@ class FileSystemListener(
     private fun isProjectEvent(event: VFileEvent): Boolean {
         val file = event.file
         if (file != null && file.isValid) {
-            return ProjectFileIndex.getInstance(project).isInContent(file)
+            if (ProjectFileIndex.getInstance(project).isInContent(file)) {
+                return true
+            }
         }
-        // Fallback to path-based check for events where file is unavailable (e.g., after deletion)
         val projectBasePath = project.basePath ?: return false
         return event.path.startsWith(projectBasePath)
     }
