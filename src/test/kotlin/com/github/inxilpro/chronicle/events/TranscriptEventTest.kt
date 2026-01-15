@@ -144,4 +144,53 @@ class TranscriptEventTest {
         val event = RefactoringUndoEvent(refactoringType = "Rename")
         assertEquals("Undo: Rename", event.summary())
     }
+
+    @Test
+    fun testAudioTranscriptionEventSummary() {
+        val event = AudioTranscriptionEvent(
+            transcriptionText = "Hello, this is a test transcription.",
+            durationMs = 5000,
+            language = "en",
+            confidence = 0.95f
+        )
+        assertEquals("Hello, this is a test transcription. (5s, 95%)", event.summary())
+    }
+
+    @Test
+    fun testAudioTranscriptionEventSummaryWithSpeaker() {
+        val event = AudioTranscriptionEvent(
+            transcriptionText = "This is speaker one talking.",
+            durationMs = 3000,
+            language = "en",
+            confidence = 0.88f,
+            speakerSegment = 1
+        )
+        assertEquals("Speaker 1: This is speaker one talking. (3s, 88%)", event.summary())
+    }
+
+    @Test
+    fun testAudioTranscriptionEventSummaryTruncation() {
+        val longText = "This is a very long transcription that exceeds one hundred characters and should be truncated with an ellipsis at the end"
+        val event = AudioTranscriptionEvent(
+            transcriptionText = longText,
+            durationMs = 10000,
+            language = "en",
+            confidence = 0.92f
+        )
+        val summary = event.summary()
+        assert(summary.startsWith("This is a very long transcription"))
+        assert(summary.contains("..."))
+        assert(summary.endsWith("(10s, 92%)"))
+    }
+
+    @Test
+    fun testAudioTranscriptionEventType() {
+        val event = AudioTranscriptionEvent(
+            transcriptionText = "Test",
+            durationMs = 1000,
+            language = "en",
+            confidence = 0.9f
+        )
+        assertEquals("audio_transcription", event.type)
+    }
 }

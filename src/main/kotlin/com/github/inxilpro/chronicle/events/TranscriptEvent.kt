@@ -145,3 +145,21 @@ data class RefactoringUndoEvent(
     override val type: String = "refactoring_undo"
     override fun summary() = "Undo: $refactoringType"
 }
+
+data class AudioTranscriptionEvent(
+    val transcriptionText: String,
+    val durationMs: Long,
+    val language: String,
+    val confidence: Float,
+    val speakerSegment: Int? = null,
+    override val timestamp: Instant = Instant.now()
+) : TranscriptEvent {
+    override val type: String = "audio_transcription"
+
+    override fun summary(): String {
+        val speakerPrefix = speakerSegment?.let { "Speaker $it: " } ?: ""
+        val preview = transcriptionText.take(100)
+        val truncated = if (transcriptionText.length > 100) "..." else ""
+        return "$speakerPrefix$preview$truncated (${durationMs / 1000}s, ${(confidence * 100).toInt()}%)"
+    }
+}
