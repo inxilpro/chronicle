@@ -5,6 +5,7 @@ import java.time.Instant
 sealed interface TranscriptEvent {
     val type: String
     val timestamp: Instant
+    fun summary(): String
 }
 
 data class FileOpenedEvent(
@@ -13,6 +14,7 @@ data class FileOpenedEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "file_opened"
+    override fun summary() = "Opened ${path.substringAfterLast("/")}" + if (isInitial) " (initial)" else ""
 }
 
 data class FileClosedEvent(
@@ -20,6 +22,7 @@ data class FileClosedEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "file_closed"
+    override fun summary() = "Closed ${path.substringAfterLast("/")}"
 }
 
 data class FileSelectedEvent(
@@ -28,6 +31,7 @@ data class FileSelectedEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "file_selected"
+    override fun summary() = "Selected ${path.substringAfterLast("/")}"
 }
 
 data class RecentFileEvent(
@@ -35,6 +39,7 @@ data class RecentFileEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "recent_file"
+    override fun summary() = "Recent: ${path.substringAfterLast("/")}"
 }
 
 data class SelectionEvent(
@@ -45,6 +50,11 @@ data class SelectionEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "selection"
+    override fun summary(): String {
+        val file = path.substringAfterLast("/")
+        val lines = if (startLine == endLine) "line $startLine" else "lines $startLine-$endLine"
+        return "Selected $lines in $file"
+    }
 }
 
 data class DocumentChangedEvent(
@@ -53,16 +63,18 @@ data class DocumentChangedEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "document_changed"
+    override fun summary() = "Modified ${path.substringAfterLast("/")}"
 }
 
 data class VisibleAreaEvent(
     val path: String,
     val startLine: Int,
     val endLine: Int,
-    val summary: String,
+    val contentDescription: String,
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "visible_area"
+    override fun summary() = "Viewing ${path.substringAfterLast("/")}:$startLine-$endLine"
 }
 
 data class FileCreatedEvent(
@@ -70,6 +82,7 @@ data class FileCreatedEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "file_created"
+    override fun summary() = "Created ${path.substringAfterLast("/")}"
 }
 
 data class FileDeletedEvent(
@@ -77,6 +90,7 @@ data class FileDeletedEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "file_deleted"
+    override fun summary() = "Deleted ${path.substringAfterLast("/")}"
 }
 
 data class FileRenamedEvent(
@@ -85,6 +99,7 @@ data class FileRenamedEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "file_renamed"
+    override fun summary() = "Renamed ${oldPath.substringAfterLast("/")} → ${newPath.substringAfterLast("/")}"
 }
 
 data class FileMovedEvent(
@@ -93,6 +108,7 @@ data class FileMovedEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "file_moved"
+    override fun summary() = "Moved ${oldPath.substringAfterLast("/")} → ${newPath.substringAfterLast("/")}"
 }
 
 data class BranchChangedEvent(
@@ -102,6 +118,7 @@ data class BranchChangedEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "branch_changed"
+    override fun summary() = "Branch: ${branch ?: "detached"}"
 }
 
 data class SearchEvent(
@@ -109,6 +126,7 @@ data class SearchEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "search"
+    override fun summary() = "Search: $query"
 }
 
 data class RefactoringEvent(
@@ -117,6 +135,7 @@ data class RefactoringEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "refactoring"
+    override fun summary() = "Refactoring: $refactoringType"
 }
 
 data class RefactoringUndoEvent(
@@ -124,4 +143,5 @@ data class RefactoringUndoEvent(
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "refactoring_undo"
+    override fun summary() = "Undo: $refactoringType"
 }
