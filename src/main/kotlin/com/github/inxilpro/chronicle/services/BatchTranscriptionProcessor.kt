@@ -91,45 +91,62 @@ class BatchTranscriptionProcessor(
         scheduledTask?.cancel(false)
         scheduledTask = null
 
+        thisLogger().info("Processing remaining audio chunks...")
         processAllChunks()
         thisLogger().info("Stopped batch transcription processing")
     }
 
     private fun processAllChunks() {
         if (!processing.compareAndSet(false, true)) {
-            thisLogger().debug("Skipping chunk processing: already in progress")
+            thisLogger().warn("Skipping chunk processing: already in progress")
             return
         }
 
         try {
+            var chunkCount = 0
             while (audioManager.hasChunks()) {
+                chunkCount++
                 processNextChunk()
             }
+            thisLogger().info("Processed $chunkCount audio chunks")
         } finally {
             processing.set(false)
         }
     }
 
     private fun processNextChunk() {
-        val chunk = audioManager.pollChunk() ?: return
-        val context = whisperContext ?: return
-        val params = whisperParams ?: return
+        val chunk = audioManager.pollChunk() ?: run {
+            thisLogger().warn("pollChunk returned null")
+            return
+        }
+        val context = whisperContext ?: run {
+            thisLogger().warn("whisperContext is null")
+            return
+        }
+        val params = whisperParams ?: run {
+            thisLogger().warn("whisperParams is null")
+            return
+        }
+
+        thisLogger().info("Processing chunk: ${chunk.data.size} bytes, ${chunk.durationMs}ms")
 
         try {
             var samples = convertBytesToFloats(chunk.data)
             if (samples.isEmpty()) {
-                thisLogger().debug("Skipping empty audio chunk")
+                thisLogger().warn("Skipping empty audio chunk")
                 return
             }
 
             // Whisper requires at least 1 second of audio (16000 samples at 16kHz)
             if (samples.size < MIN_SAMPLES) {
-                thisLogger().debug("Padding short audio chunk from ${samples.size} to $MIN_SAMPLES samples")
+                thisLogger().info("Padding short audio chunk from ${samples.size} to $MIN_SAMPLES samples")
                 samples = samples.copyOf(MIN_SAMPLES)
             }
 
+            thisLogger().info("Calling whisper.full with ${samples.size} samples")
             val whisper = WhisperJNI()
             val result = whisper.full(context, params, samples, samples.size)
+            thisLogger().info("Whisper returned result: $result")
 
             if (result == 0) {
                 val numSegments = whisper.fullNSegments(context)
