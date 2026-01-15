@@ -11,5 +11,6 @@
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow factoryClass="com.github.inxilpro.chronicle.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
         <postStartupActivity implementation="com.github.inxilpro.chronicle.startup.MyProjectActivity" />
+        <projectService serviceImplementation="com.github.inxilpro.chronicle.services.ActivityTranscriptService"/>
     </extensions>
 </idea-plugin>
