@@ -52,9 +52,10 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private var refreshPending = false
 
-    private val audioRecordButton = JButton("Start Audio")
+    private val audioToggleButton = JButton("Enable Audio")
     private val audioDeviceCombo = JComboBox<String>()
     private val audioStatusLabel = JBLabel()
+    private var audioEnabled = false
 
     private val changeListener = ActivityTranscriptService.TranscriptChangeListener {
         scheduleRefresh()
@@ -81,7 +82,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         val audioPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
             add(JLabel("Audio:"))
             add(audioDeviceCombo)
-            add(audioRecordButton)
+            add(audioToggleButton)
             add(audioStatusLabel)
         }
 
@@ -106,8 +107,14 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         startStopButton.addActionListener {
             if (service.isLogging) {
                 service.stopLogging()
+                if (audioEnabled && audioService.isRecording()) {
+                    audioService.stopRecording()
+                }
             } else {
                 service.startLogging()
+                if (audioEnabled && !audioService.isRecording()) {
+                    startAudioRecording()
+                }
             }
         }
 
@@ -115,18 +122,14 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             service.resetSession()
         }
 
-        audioRecordButton.addActionListener {
-            when (audioService.getState()) {
-                AudioTranscriptionService.RecordingState.RECORDING -> {
-                    audioService.stopRecording()
-                }
-                AudioTranscriptionService.RecordingState.STOPPED,
-                AudioTranscriptionService.RecordingState.ERROR -> {
-                    val selectedDevice = audioDeviceCombo.selectedItem as? String
-                    val deviceName = if (selectedDevice == DEFAULT_DEVICE) null else selectedDevice
-                    audioService.startRecording(deviceName)
-                }
-                else -> {}
+        audioToggleButton.addActionListener {
+            audioEnabled = !audioEnabled
+            updateAudioToggleButton()
+
+            if (audioEnabled && service.isLogging) {
+                startAudioRecording()
+            } else if (!audioEnabled && audioService.isRecording()) {
+                audioService.stopRecording()
             }
         }
 
@@ -136,7 +139,14 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         refreshAudioDevices()
         refreshList()
         updateButtonState()
+        updateAudioToggleButton()
         updateAudioState(audioService.getState())
+    }
+
+    private fun startAudioRecording() {
+        val selectedDevice = audioDeviceCombo.selectedItem as? String
+        val deviceName = if (selectedDevice == DEFAULT_DEVICE) null else selectedDevice
+        audioService.startRecording(deviceName)
     }
 
     private fun refreshAudioDevices() {
@@ -147,40 +157,36 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         }
     }
 
+    private fun updateAudioToggleButton() {
+        audioToggleButton.text = if (audioEnabled) "Disable Audio" else "Enable Audio"
+        audioDeviceCombo.isEnabled = !audioEnabled || !service.isLogging
+    }
+
     private fun updateAudioState(state: AudioTranscriptionService.RecordingState) {
         when (state) {
             AudioTranscriptionService.RecordingState.STOPPED -> {
-                audioRecordButton.text = "Start Audio"
-                audioRecordButton.isEnabled = true
-                audioDeviceCombo.isEnabled = true
-                audioStatusLabel.text = ""
+                audioStatusLabel.text = if (audioEnabled) "Enabled" else ""
+                audioToggleButton.isEnabled = true
             }
             AudioTranscriptionService.RecordingState.INITIALIZING -> {
-                audioRecordButton.text = "Initializing..."
-                audioRecordButton.isEnabled = false
-                audioDeviceCombo.isEnabled = false
                 audioStatusLabel.text = "Loading model..."
+                audioToggleButton.isEnabled = false
             }
             AudioTranscriptionService.RecordingState.RECORDING -> {
-                audioRecordButton.text = "Stop Audio"
-                audioRecordButton.isEnabled = true
-                audioDeviceCombo.isEnabled = false
                 audioStatusLabel.text = "Recording"
+                audioToggleButton.isEnabled = true
             }
             AudioTranscriptionService.RecordingState.PROCESSING -> {
-                audioRecordButton.text = "Processing..."
-                audioRecordButton.isEnabled = false
-                audioDeviceCombo.isEnabled = false
-                audioStatusLabel.text = "Processing remaining audio..."
+                audioStatusLabel.text = "Processing..."
+                audioToggleButton.isEnabled = false
             }
             AudioTranscriptionService.RecordingState.ERROR -> {
-                audioRecordButton.text = "Start Audio"
-                audioRecordButton.isEnabled = true
-                audioDeviceCombo.isEnabled = true
                 val error = audioService.getLastError() ?: "Unknown error"
                 audioStatusLabel.text = "Error: $error"
+                audioToggleButton.isEnabled = true
             }
         }
+        updateAudioToggleButton()
     }
 
     private fun scheduleRefresh() {
