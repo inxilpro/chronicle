@@ -12,6 +12,7 @@ class FileActivityListenerTest : BasePlatformTestCase() {
 
     fun testFileOpenedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -30,6 +31,7 @@ class FileActivityListenerTest : BasePlatformTestCase() {
 
     fun testFileClosedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
 
         // Open a file first
         val psiFile = myFixture.configureByText("ToClose.kt", "val x = 1")
@@ -52,6 +54,7 @@ class FileActivityListenerTest : BasePlatformTestCase() {
 
     fun testFileSelectionChangedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
 
         // Open two files
         val file1 = myFixture.configureByText("File1.kt", "val a = 1")

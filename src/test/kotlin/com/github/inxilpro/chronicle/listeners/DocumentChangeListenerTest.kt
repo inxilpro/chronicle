@@ -10,6 +10,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
 
     fun testDocumentChangeEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -29,6 +30,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
 
     fun testDocumentChangeEventContainsCorrectPath() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -49,6 +51,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
 
     fun testDocumentChangeEventTracksLineCount() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -79,6 +82,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
 
     fun testMultipleChangesLogMultipleEvents() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 

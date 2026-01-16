@@ -59,6 +59,7 @@ class VisibleAreaTrackerTest : BasePlatformTestCase() {
 
     fun testLogVisibleAreaCreatesEvent() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -91,6 +92,7 @@ class VisibleAreaTrackerTest : BasePlatformTestCase() {
 
     fun testLogVisibleAreaWithDifferentFiles() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
