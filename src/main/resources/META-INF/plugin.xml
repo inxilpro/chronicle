@@ -7,14 +7,11 @@
     <depends>com.intellij.modules.platform</depends>
     <depends optional="true" config-file="plugin-git.xml">Git4Idea</depends>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
-
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow factoryClass="com.github.inxilpro.chronicle.toolWindow.ChronicleToolWindowFactory"
                     id="Chronicle"
                     anchor="right"
                     icon="AllIcons.CodeWithMe.CwmCamOn"/>
-        <postStartupActivity implementation="com.github.inxilpro.chronicle.startup.MyProjectActivity" />
         <projectService serviceImplementation="com.github.inxilpro.chronicle.services.ActivityTranscriptService"/>
         <projectService serviceImplementation="com.github.inxilpro.chronicle.services.AudioTranscriptionService"/>
     </extensions>
