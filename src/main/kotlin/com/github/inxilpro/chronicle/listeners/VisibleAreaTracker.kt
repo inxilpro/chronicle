@@ -5,6 +5,7 @@ import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.event.VisibleAreaEvent as IdeaVisibleAreaEvent
 import com.intellij.openapi.editor.event.VisibleAreaListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -29,7 +30,7 @@ class VisibleAreaTracker(
 
     private val pendingJobs = ConcurrentHashMap<Editor, ScheduledFuture<*>>()
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
-    private val attachedEditors = ConcurrentHashMap.newKeySet<Editor>()
+    private val attachedListeners = ConcurrentHashMap<Editor, VisibleAreaListener>()
 
     override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
         source.getEditors(file).forEach { fileEditor ->
@@ -48,9 +49,9 @@ class VisibleAreaTracker(
     }
 
     fun attachTo(editor: Editor) {
-        if (!attachedEditors.add(editor)) return
+        if (attachedListeners.containsKey(editor)) return
 
-        val listener = VisibleAreaListener { event ->
+        val listener = VisibleAreaListener { _: IdeaVisibleAreaEvent ->
             pendingJobs[editor]?.cancel(false)
 
             pendingJobs[editor] = executor.schedule({
@@ -60,11 +61,14 @@ class VisibleAreaTracker(
             }, debounceMs, TimeUnit.MILLISECONDS)
         }
 
+        attachedListeners[editor] = listener
         editor.scrollingModel.addVisibleAreaListener(listener)
     }
 
     private fun detachFrom(editor: Editor) {
-        attachedEditors.remove(editor)
+        attachedListeners.remove(editor)?.let { listener ->
+            editor.scrollingModel.removeVisibleAreaListener(listener)
+        }
         pendingJobs.remove(editor)?.cancel(false)
     }
 
@@ -99,7 +103,7 @@ class VisibleAreaTracker(
     override fun dispose() {
         pendingJobs.values.forEach { it.cancel(true) }
         pendingJobs.clear()
-        attachedEditors.clear()
+        attachedListeners.clear()
         executor.shutdownNow()
     }
 
