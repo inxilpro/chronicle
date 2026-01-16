@@ -1,0 +1,22 @@
+name: Auto-Update
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  auto_update:
+    name: Auto-update PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate app token
+        id: generate_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.AUTO_UPDATE_APP_ID }}
+          private-key: ${{ secrets.AUTO_UPDATE_PRIVATE_KEY }}
+
+      - name: Update outdated auto-merge PRs
+        uses: tibdex/auto-update@v2
+        with:
+          github_token: ${{ steps.generate_token.outputs.token }}
