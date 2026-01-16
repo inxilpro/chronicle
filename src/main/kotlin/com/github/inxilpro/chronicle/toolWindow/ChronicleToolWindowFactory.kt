@@ -16,6 +16,8 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.util.Alarm
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
+import java.awt.Container
+import java.awt.Dimension
 import java.awt.FlowLayout
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -52,10 +54,10 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private var refreshPending = false
 
-    private val audioToggleButton = JButton("Enable Audio")
+    private val audioToggleButton = JButton("Disable Audio")
     private val audioDeviceCombo = JComboBox<String>()
     private val audioStatusLabel = JBLabel()
-    private var audioEnabled = false
+    private var audioEnabled = true
 
     private val changeListener = ActivityTranscriptService.TranscriptChangeListener {
         scheduleRefresh()
@@ -79,8 +81,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(statusLabel)
         }
 
-        val audioPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
-            add(JLabel("Audio:"))
+        val audioPanel = JPanel(WrapLayout(FlowLayout.LEFT, 4, 4)).apply {
             add(audioDeviceCombo)
             add(audioToggleButton)
             add(audioStatusLabel)
@@ -166,9 +167,9 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private fun updateAudioStatusLabel() {
         val state = audioService.getState()
         audioStatusLabel.text = when (state) {
-            AudioTranscriptionService.RecordingState.STOPPED -> if (audioEnabled) "Enabled" else ""
+            AudioTranscriptionService.RecordingState.STOPPED -> ""
             AudioTranscriptionService.RecordingState.INITIALIZING -> "Loading model..."
-            AudioTranscriptionService.RecordingState.RECORDING -> "Recording"
+            AudioTranscriptionService.RecordingState.RECORDING -> ""
             AudioTranscriptionService.RecordingState.PROCESSING -> "Processing..."
             AudioTranscriptionService.RecordingState.ERROR -> "Error: ${audioService.getLastError() ?: "Unknown"}"
         }
@@ -177,7 +178,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private fun updateAudioState(state: AudioTranscriptionService.RecordingState) {
         when (state) {
             AudioTranscriptionService.RecordingState.STOPPED -> {
-                audioStatusLabel.text = if (audioEnabled) "Enabled" else ""
+                audioStatusLabel.text = ""
                 audioToggleButton.isEnabled = true
             }
             AudioTranscriptionService.RecordingState.INITIALIZING -> {
@@ -185,7 +186,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
                 audioToggleButton.isEnabled = false
             }
             AudioTranscriptionService.RecordingState.RECORDING -> {
-                audioStatusLabel.text = "Recording"
+                audioStatusLabel.text = ""
                 audioToggleButton.isEnabled = true
             }
             AudioTranscriptionService.RecordingState.PROCESSING -> {
@@ -230,9 +231,8 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private fun updateButtonState() {
         startStopButton.text = if (service.isLogging) "Stop" else "Start"
         val totalEvents = service.getEvents().size
-        val status = if (service.isLogging) "Recording" else "Paused"
         val truncatedNote = if (totalEvents > MAX_DISPLAYED_EVENTS) " (showing last $MAX_DISPLAYED_EVENTS)" else ""
-        statusLabel.text = "$status • $totalEvents events$truncatedNote"
+        statusLabel.text = "$totalEvents events$truncatedNote"
     }
 
     override fun dispose() {
@@ -251,6 +251,59 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             val component = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus)
             border = JBUI.Borders.empty(4, 8)
             return component
+        }
+    }
+}
+
+private class WrapLayout(align: Int, hgap: Int, vgap: Int) : FlowLayout(align, hgap, vgap) {
+
+    override fun preferredLayoutSize(target: Container): Dimension {
+        return layoutSize(target, true)
+    }
+
+    override fun minimumLayoutSize(target: Container): Dimension {
+        val minimum = layoutSize(target, false)
+        minimum.width -= (hgap + 1)
+        return minimum
+    }
+
+    private fun layoutSize(target: Container, preferred: Boolean): Dimension {
+        synchronized(target.treeLock) {
+            val targetWidth = if (target.size.width > 0) target.size.width else Int.MAX_VALUE
+            val insets = target.insets
+            val maxWidth = targetWidth - insets.left - insets.right - hgap * 2
+
+            val dim = Dimension(0, 0)
+            var rowWidth = 0
+            var rowHeight = 0
+
+            for (i in 0 until target.componentCount) {
+                val component = target.getComponent(i)
+                if (component.isVisible) {
+                    val d = if (preferred) component.preferredSize else component.minimumSize
+
+                    if (rowWidth + d.width > maxWidth && rowWidth > 0) {
+                        dim.width = maxOf(dim.width, rowWidth)
+                        dim.height += rowHeight + vgap
+                        rowWidth = 0
+                        rowHeight = 0
+                    }
+
+                    if (rowWidth != 0) {
+                        rowWidth += hgap
+                    }
+                    rowWidth += d.width
+                    rowHeight = maxOf(rowHeight, d.height)
+                }
+            }
+
+            dim.width = maxOf(dim.width, rowWidth)
+            dim.height += rowHeight
+
+            dim.width += insets.left + insets.right + hgap * 2
+            dim.height += insets.top + insets.bottom + vgap * 2
+
+            return dim
         }
     }
 }

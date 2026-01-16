@@ -6,6 +6,7 @@ import com.github.inxilpro.chronicle.events.TranscriptEvent
 import com.github.inxilpro.chronicle.listeners.DebouncedSelectionListener
 import com.github.inxilpro.chronicle.listeners.DocumentChangeListener
 import com.github.inxilpro.chronicle.listeners.FileSystemListener
+import com.github.inxilpro.chronicle.listeners.GitBranchTracker
 import com.github.inxilpro.chronicle.listeners.SearchEverywhereTracker
 import com.github.inxilpro.chronicle.listeners.VisibleAreaTracker
 import com.github.inxilpro.chronicle.shell.ShellHistoryTracker
@@ -53,6 +54,7 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
         FileSystemListener.register(project, this)
         VisibleAreaTracker.register(project, this)
         SearchEverywhereTracker.register(project, this)
+        GitBranchTracker.register(project, this)
         shellHistoryTracker = ShellHistoryTracker.register(project, this)
         thisLogger().info("Registered activity listeners")
     }
