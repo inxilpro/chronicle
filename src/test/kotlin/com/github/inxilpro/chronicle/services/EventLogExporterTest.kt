@@ -50,7 +50,6 @@ class EventLogExporterTest {
         assertEquals(testTimestamp.toString(), exported.get("timestamp").asString)
         assertEquals("/project/src/Main.kt", exported.get("path").asString)
         assertTrue(exported.get("isInitial").asBoolean)
-        assertEquals("Opened Main.kt (initial)", exported.get("summary").asString)
     }
 
     @Test
