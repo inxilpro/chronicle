@@ -10,6 +10,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
 
     fun testDocumentChangeEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -19,6 +20,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
         WriteCommandAction.runWriteCommandAction(project) {
             myFixture.editor.document.setText("val x = 2")
         }
+        service.documentChangeListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)
@@ -29,6 +31,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
 
     fun testDocumentChangeEventContainsCorrectPath() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -38,6 +41,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
         WriteCommandAction.runWriteCommandAction(project) {
             myFixture.editor.document.setText("val x = 2")
         }
+        service.documentChangeListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)
@@ -49,6 +53,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
 
     fun testDocumentChangeEventTracksLineCount() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -58,6 +63,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
         WriteCommandAction.runWriteCommandAction(project) {
             myFixture.editor.document.setText("line1\nline2\nline3")
         }
+        service.documentChangeListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)
@@ -79,6 +85,7 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
 
     fun testMultipleChangesLogMultipleEvents() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -88,10 +95,12 @@ class DocumentChangeListenerTest : BasePlatformTestCase() {
         WriteCommandAction.runWriteCommandAction(project) {
             myFixture.editor.document.setText("line1\nline2")
         }
+        service.documentChangeListener?.flushPendingEvents()
 
         WriteCommandAction.runWriteCommandAction(project) {
             myFixture.editor.document.setText("line1\nline2\nline3")
         }
+        service.documentChangeListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)

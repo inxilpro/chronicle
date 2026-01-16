@@ -15,6 +15,7 @@
                     icon="AllIcons.CodeWithMe.CwmCamOn"/>
         <postStartupActivity implementation="com.github.inxilpro.chronicle.startup.MyProjectActivity" />
         <projectService serviceImplementation="com.github.inxilpro.chronicle.services.ActivityTranscriptService"/>
+        <projectService serviceImplementation="com.github.inxilpro.chronicle.services.AudioTranscriptionService"/>
     </extensions>
 
     <projectListeners>

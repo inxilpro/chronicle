@@ -6,6 +6,7 @@ import com.github.inxilpro.chronicle.events.TranscriptEvent
 import com.github.inxilpro.chronicle.listeners.DebouncedSelectionListener
 import com.github.inxilpro.chronicle.listeners.DocumentChangeListener
 import com.github.inxilpro.chronicle.listeners.FileSystemListener
+import com.github.inxilpro.chronicle.listeners.SearchEverywhereTracker
 import com.github.inxilpro.chronicle.listeners.VisibleAreaTracker
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
@@ -32,21 +33,23 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     private var sessionStart: Instant = Instant.now()
     private val debounceTimers: MutableMap<String, ScheduledFuture<*>> = mutableMapOf()
     private val changeListeners: MutableList<TranscriptChangeListener> = CopyOnWriteArrayList()
+    internal var documentChangeListener: DocumentChangeListener? = null
+        private set
 
-    var isLogging: Boolean = true
+    var isLogging: Boolean = false
         private set
 
     init {
         thisLogger().info("ActivityTranscriptService initialized for project: ${project.name}")
-        captureInitialState()
         registerListeners()
     }
 
     private fun registerListeners() {
         DebouncedSelectionListener.register(project, this)
-        DocumentChangeListener.register(project, this)
+        documentChangeListener = DocumentChangeListener.register(project, this)
         FileSystemListener.register(project, this)
         VisibleAreaTracker.register(project, this)
+        SearchEverywhereTracker.register(project, this)
         thisLogger().info("Registered activity listeners")
     }
 
@@ -55,8 +58,8 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
         debounceTimers.clear()
     }
 
-    fun log(event: TranscriptEvent) {
-        if (!isLogging) return
+    fun log(event: TranscriptEvent, allowBackfill: Boolean = false) {
+        if (!isLogging && !allowBackfill) return
         events.add(event)
         thisLogger().debug("Logged event: ${event.type} at ${event.timestamp}")
         notifyListeners()
@@ -77,7 +80,11 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     }
 
     fun startLogging() {
+        val shouldCaptureInitialState = events.isEmpty()
         isLogging = true
+        if (shouldCaptureInitialState) {
+            captureInitialState()
+        }
         thisLogger().info("Logging started for project: ${project.name}")
         notifyListeners()
     }

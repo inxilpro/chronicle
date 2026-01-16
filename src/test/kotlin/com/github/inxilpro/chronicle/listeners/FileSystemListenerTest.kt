@@ -13,6 +13,7 @@ class FileSystemListenerTest : BasePlatformTestCase() {
 
     fun testFileCreatedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -28,6 +29,7 @@ class FileSystemListenerTest : BasePlatformTestCase() {
 
     fun testFileDeletedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
 
         val psiFile = myFixture.addFileToProject("ToDelete.kt", "val x = 1")
         val virtualFile = psiFile.virtualFile
@@ -49,6 +51,7 @@ class FileSystemListenerTest : BasePlatformTestCase() {
 
     fun testFileRenamedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
 
         val psiFile = myFixture.addFileToProject("OldName.kt", "val x = 1")
         val virtualFile = psiFile.virtualFile
@@ -73,6 +76,7 @@ class FileSystemListenerTest : BasePlatformTestCase() {
 
     fun testFileMovedEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
 
         val psiFile = myFixture.addFileToProject("source/ToMove.kt", "val x = 1")
         val virtualFile = psiFile.virtualFile
