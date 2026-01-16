@@ -148,9 +148,9 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         try:
             upstream = socket.create_connection(
                 (os.environ["PROXY_HOST"], int(os.environ["PROXY_PORT"])), 60)
-            auth = base64.b64encode(
-                f"{os.environ[\"PROXY_USER\"]}:{os.environ[\"PROXY_PASSWORD\"]}".encode()
-            ).decode()
+            user = os.environ["PROXY_USER"]
+            passwd = os.environ["PROXY_PASSWORD"]
+            auth = base64.b64encode(f"{user}:{passwd}".encode()).decode()
             upstream.send((
                 f"CONNECT {self.path} HTTP/1.1\r\n"
                 f"Host: {self.path}\r\n"
