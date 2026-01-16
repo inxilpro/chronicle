@@ -136,7 +136,7 @@ class BatchTranscriptionProcessor(
 
                 for (i in 0 until numSegments) {
                     val text = whisper.fullGetSegmentText(context, i)?.trim() ?: continue
-                    if (text.isEmpty() || text.isBlank()) continue
+                    if (text.isEmpty() || text.isBlank() || text == "[BLANK_AUDIO]") continue
 
                     val startTime = whisper.fullGetSegmentTimestamp0(context, i)
                     val endTime = whisper.fullGetSegmentTimestamp1(context, i)
