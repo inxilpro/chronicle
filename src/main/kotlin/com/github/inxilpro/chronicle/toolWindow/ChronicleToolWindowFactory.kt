@@ -107,7 +107,8 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         startStopButton.addActionListener {
             if (service.isLogging) {
                 service.stopLogging()
-                if (audioEnabled && audioService.isRecording()) {
+                if (audioEnabled) {
+                    // Stop audio regardless of state - handles INITIALIZING, RECORDING, etc.
                     audioService.stopRecording()
                 }
             } else {

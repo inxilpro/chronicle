@@ -79,6 +79,9 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
         }
     }
 
+    @Volatile
+    private var stopRequested = false
+
     fun startRecording(deviceName: String? = null) {
         val currentState = state.get()
         if (currentState == RecordingState.RECORDING) {
@@ -86,10 +89,15 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
             return
         }
 
+        stopRequested = false
+
         if (processor == null || !processor!!.isInitialized()) {
             initialize { success ->
-                if (success) {
+                if (success && !stopRequested) {
                     doStartRecording(deviceName)
+                } else if (stopRequested) {
+                    thisLogger().info("Stop was requested during initialization, not starting recording")
+                    setState(RecordingState.STOPPED)
                 }
             }
             return
@@ -112,27 +120,35 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
     }
 
     fun stopRecording() {
-        thisLogger().info("stopRecording called, current state: ${state.get()}")
-        if (state.get() != RecordingState.RECORDING) {
-            thisLogger().info("stopRecording: not in RECORDING state, returning")
-            return
-        }
+        val currentState = state.get()
+        thisLogger().info("stopRecording called, current state: $currentState")
 
-        setState(RecordingState.PROCESSING)
+        when (currentState) {
+            RecordingState.INITIALIZING -> {
+                thisLogger().info("Stop requested during initialization")
+                stopRequested = true
+            }
+            RecordingState.RECORDING -> {
+                setState(RecordingState.PROCESSING)
 
-        try {
-            thisLogger().info("Calling audioManager.stopRecording()...")
-            audioManager.stopRecording()
-            thisLogger().info("audioManager.stopRecording() completed, hasChunks: ${audioManager.hasChunks()}")
-            thisLogger().info("Calling processor.stopProcessing()...")
-            processor?.stopProcessing()
-            thisLogger().info("processor.stopProcessing() completed")
-            setState(RecordingState.STOPPED)
-            thisLogger().info("Stopped audio recording")
-        } catch (e: Exception) {
-            lastError = "Error while stopping recording: ${e.message}"
-            thisLogger().error("Error while stopping recording", e)
-            setState(RecordingState.STOPPED)
+                try {
+                    thisLogger().info("Calling audioManager.stopRecording()...")
+                    audioManager.stopRecording()
+                    thisLogger().info("audioManager.stopRecording() completed, hasChunks: ${audioManager.hasChunks()}")
+                    thisLogger().info("Calling processor.stopProcessing()...")
+                    processor?.stopProcessing()
+                    thisLogger().info("processor.stopProcessing() completed")
+                    setState(RecordingState.STOPPED)
+                    thisLogger().info("Stopped audio recording")
+                } catch (e: Exception) {
+                    lastError = "Error while stopping recording: ${e.message}"
+                    thisLogger().error("Error while stopping recording", e)
+                    setState(RecordingState.STOPPED)
+                }
+            }
+            else -> {
+                thisLogger().info("stopRecording: state is $currentState, nothing to stop")
+            }
         }
     }
 
@@ -168,7 +184,8 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
     }
 
     override fun dispose() {
-        if (state.get() == RecordingState.RECORDING) {
+        val currentState = state.get()
+        if (currentState == RecordingState.RECORDING || currentState == RecordingState.INITIALIZING) {
             stopRecording()
         }
         audioManager.dispose()
