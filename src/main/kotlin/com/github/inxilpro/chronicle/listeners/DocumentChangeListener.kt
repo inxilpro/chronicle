@@ -27,6 +27,7 @@ class DocumentChangeListener(
         get() = ActivityTranscriptService.getInstance(project)
 
     private val pendingJobs = ConcurrentHashMap<Document, ScheduledFuture<*>>()
+    private val pendingEventData = ConcurrentHashMap<Document, String>()
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
     override fun afterDocumentChange(document: Document) {
@@ -36,12 +37,26 @@ class DocumentChangeListener(
         pendingJobs[document]?.cancel(false)
 
         val filePath = file.path
+        pendingEventData[document] = filePath
         pendingJobs[document] = executor.schedule({
+            pendingEventData.remove(document)
             transcriptService.log(DocumentChangedEvent(
                 path = filePath,
                 lineCount = document.lineCount
             ))
         }, debounceMs, TimeUnit.MILLISECONDS)
+    }
+
+    internal fun flushPendingEvents() {
+        pendingJobs.keys.toList().forEach { document ->
+            pendingJobs.remove(document)?.cancel(false)
+            pendingEventData.remove(document)?.let { filePath ->
+                transcriptService.log(DocumentChangedEvent(
+                    path = filePath,
+                    lineCount = document.lineCount
+                ))
+            }
+        }
     }
 
     private fun isProjectFile(file: VirtualFile): Boolean {
@@ -55,6 +70,7 @@ class DocumentChangeListener(
     override fun dispose() {
         pendingJobs.values.forEach { it.cancel(true) }
         pendingJobs.clear()
+        pendingEventData.clear()
         executor.shutdownNow()
     }
 

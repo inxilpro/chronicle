@@ -33,6 +33,8 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     private var sessionStart: Instant = Instant.now()
     private val debounceTimers: MutableMap<String, ScheduledFuture<*>> = mutableMapOf()
     private val changeListeners: MutableList<TranscriptChangeListener> = CopyOnWriteArrayList()
+    internal var documentChangeListener: DocumentChangeListener? = null
+        private set
 
     var isLogging: Boolean = false
         private set
@@ -44,7 +46,7 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
 
     private fun registerListeners() {
         DebouncedSelectionListener.register(project, this)
-        DocumentChangeListener.register(project, this)
+        documentChangeListener = DocumentChangeListener.register(project, this)
         FileSystemListener.register(project, this)
         VisibleAreaTracker.register(project, this)
         SearchEverywhereTracker.register(project, this)
