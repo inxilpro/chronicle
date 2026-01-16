@@ -98,7 +98,7 @@ download_gradle_wrapper() {
 
   # Create wrapper directory and trigger gradlew to create hash dir
   mkdir -p "$wrapper_dir"
-  (cd "${CLAUDE_PROJECT_DIR:-$PWD}" && ./gradlew --version 2>/dev/null || true)
+  (cd "${CLAUDE_PROJECT_DIR:-$PWD}" && timeout 30 ./gradlew --version 2>/dev/null || true)
 
   # Find and populate the hash directory
   local hash_dir
@@ -221,9 +221,10 @@ EOF
 }
 
 # Main execution
-download_gradle_wrapper
+# Start proxy and configure Gradle BEFORE any Gradle operations
 start_local_proxy
 configure_gradle
+download_gradle_wrapper
 
 echo ""
 echo "Gradle setup complete. You can now run: ./gradlew build"
