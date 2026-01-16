@@ -162,3 +162,18 @@ data class AudioTranscriptionEvent(
         return "\"$preview$truncated\""
     }
 }
+
+data class ShellCommandEvent(
+    val command: String,
+    val shell: String,
+    val workingDirectory: String? = null,
+    override val timestamp: Instant = Instant.now()
+) : TranscriptEvent {
+    override val type: String = "shell_command"
+
+    override fun summary(): String {
+        val preview = command.take(80)
+        val truncated = if (command.length > 80) "..." else ""
+        return "[$shell] $preview$truncated"
+    }
+}

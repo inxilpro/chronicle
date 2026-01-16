@@ -9,6 +9,7 @@ import com.github.inxilpro.chronicle.listeners.FileSystemListener
 import com.github.inxilpro.chronicle.listeners.GitBranchTracker
 import com.github.inxilpro.chronicle.listeners.SearchEverywhereTracker
 import com.github.inxilpro.chronicle.listeners.VisibleAreaTracker
+import com.github.inxilpro.chronicle.shell.ShellHistoryTracker
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
@@ -36,6 +37,8 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     private val changeListeners: MutableList<TranscriptChangeListener> = CopyOnWriteArrayList()
     internal var documentChangeListener: DocumentChangeListener? = null
         private set
+    internal var shellHistoryTracker: ShellHistoryTracker? = null
+        private set
 
     var isLogging: Boolean = false
         private set
@@ -52,6 +55,7 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
         VisibleAreaTracker.register(project, this)
         SearchEverywhereTracker.register(project, this)
         GitBranchTracker.register(project, this)
+        shellHistoryTracker = ShellHistoryTracker.register(project, this)
         thisLogger().info("Registered activity listeners")
     }
 
@@ -87,11 +91,13 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
         if (shouldCaptureInitialState) {
             captureInitialState()
         }
+        shellHistoryTracker?.startTracking(sessionStart)
         thisLogger().info("Logging started for project: ${project.name}")
         notifyListeners()
     }
 
     fun stopLogging() {
+        shellHistoryTracker?.stopTracking()
         isLogging = false
         thisLogger().info("Logging stopped for project: ${project.name}")
         notifyListeners()
