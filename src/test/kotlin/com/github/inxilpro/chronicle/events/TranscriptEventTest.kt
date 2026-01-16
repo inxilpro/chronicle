@@ -153,7 +153,7 @@ class TranscriptEventTest {
             language = "en",
             confidence = 0.95f
         )
-        assertEquals("Hello, this is a test transcription. (5s, 95%)", event.summary())
+        assertEquals("\"Hello, this is a test transcription.\"", event.summary())
     }
 
     @Test
@@ -165,7 +165,7 @@ class TranscriptEventTest {
             confidence = 0.88f,
             speakerSegment = 1
         )
-        assertEquals("Speaker 1: This is speaker one talking. (3s, 88%)", event.summary())
+        assertEquals("\"This is speaker one talking.\"", event.summary())
     }
 
     @Test
@@ -178,9 +178,9 @@ class TranscriptEventTest {
             confidence = 0.92f
         )
         val summary = event.summary()
-        assert(summary.startsWith("This is a very long transcription"))
+        assert(summary.startsWith("\"This is a very long transcription"))
         assert(summary.contains("..."))
-        assert(summary.endsWith("(10s, 92%)"))
+        assert(summary.endsWith("...\""))
     }
 
     @Test
