@@ -34,6 +34,9 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
 
+    // Gson for JSON serialization (bundled with IntelliJ Platform at runtime)
+    compileOnly("com.google.code.gson:gson:2.11.0")
+
     // WhisperJNI for local audio transcription
     implementation("io.github.givimad:whisper-jni:1.7.1")
 
