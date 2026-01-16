@@ -25,6 +25,7 @@ class ActivityTranscriptServiceTest : BasePlatformTestCase() {
 
     fun testLogEvent() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         val initialCount = service.getEvents().size
 
         val testEvent = FileOpenedEvent(path = "/test/path/file.kt", isInitial = false)
@@ -41,6 +42,7 @@ class ActivityTranscriptServiceTest : BasePlatformTestCase() {
 
     fun testResetSessionClearsEvents() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
 
         // Log some test events
         service.log(FileOpenedEvent(path = "/test/file1.kt"))
@@ -63,6 +65,7 @@ class ActivityTranscriptServiceTest : BasePlatformTestCase() {
 
         // Get a fresh service (reset to capture the now-open file)
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
 
         val events = service.getEvents()
@@ -78,6 +81,7 @@ class ActivityTranscriptServiceTest : BasePlatformTestCase() {
 
     fun testEventTypes() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
 
         val fileOpened = FileOpenedEvent(path = "/test.kt")
         val recentFile = RecentFileEvent(path = "/recent.kt")

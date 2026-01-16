@@ -1,6 +1,7 @@
 package com.github.inxilpro.chronicle.toolWindow
 
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
+import com.github.inxilpro.chronicle.services.AudioTranscriptionService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
@@ -15,6 +16,7 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.util.Alarm
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
+import java.awt.FlowLayout
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.swing.*
@@ -36,9 +38,11 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     companion object {
         private const val MAX_DISPLAYED_EVENTS = 1000
         private const val REFRESH_DEBOUNCE_MS = 100
+        private const val DEFAULT_DEVICE = "Default Microphone"
     }
 
     private val service = ActivityTranscriptService.getInstance(project)
+    private val audioService = AudioTranscriptionService.getInstance(project)
     private val listModel = CollectionListModel<String>()
     private val eventList = JBList(listModel)
     private val startStopButton = JButton("Stop")
@@ -48,8 +52,19 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private var refreshPending = false
 
+    private val audioToggleButton = JButton("Enable Audio")
+    private val audioDeviceCombo = JComboBox<String>()
+    private val audioStatusLabel = JBLabel()
+    private var audioEnabled = false
+
     private val changeListener = ActivityTranscriptService.TranscriptChangeListener {
         scheduleRefresh()
+    }
+
+    private val audioStateListener = AudioTranscriptionService.StateChangeListener { state ->
+        ApplicationManager.getApplication().invokeLater {
+            updateAudioState(state)
+        }
     }
 
     init {
@@ -64,6 +79,20 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(statusLabel)
         }
 
+        val audioPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+            add(JLabel("Audio:"))
+            add(audioDeviceCombo)
+            add(audioToggleButton)
+            add(audioStatusLabel)
+        }
+
+        val controlsPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            add(buttonPanel)
+            add(Box.createVerticalStrut(4))
+            add(audioPanel)
+        }
+
         eventList.fixedCellHeight = JBUI.scale(24)
         eventList.cellRenderer = EventListCellRenderer()
         eventList.selectionMode = ListSelectionModel.SINGLE_SELECTION
@@ -72,14 +101,20 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             border = JBUI.Borders.empty(8, 0)
         }
 
-        add(buttonPanel, BorderLayout.NORTH)
+        add(controlsPanel, BorderLayout.NORTH)
         add(scrollPane, BorderLayout.CENTER)
 
         startStopButton.addActionListener {
             if (service.isLogging) {
                 service.stopLogging()
+                if (audioEnabled) {
+                    audioService.stopRecording()
+                }
             } else {
                 service.startLogging()
+                if (audioEnabled && !audioService.isRecording()) {
+                    startAudioRecording()
+                }
             }
         }
 
@@ -87,9 +122,83 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             service.resetSession()
         }
 
+        audioToggleButton.addActionListener {
+            audioEnabled = !audioEnabled
+            updateAudioToggleButton()
+            updateAudioStatusLabel()
+
+            if (audioEnabled && service.isLogging) {
+                startAudioRecording()
+            } else if (!audioEnabled && audioService.isRecording()) {
+                audioService.stopRecording()
+            }
+        }
+
         service.addChangeListener(changeListener)
+        audioService.addStateListener(audioStateListener)
+
+        refreshAudioDevices()
         refreshList()
         updateButtonState()
+        updateAudioToggleButton()
+        updateAudioState(audioService.getState())
+    }
+
+    private fun startAudioRecording() {
+        val selectedDevice = audioDeviceCombo.selectedItem as? String
+        val deviceName = if (selectedDevice == DEFAULT_DEVICE) null else selectedDevice
+        audioService.startRecording(deviceName)
+    }
+
+    private fun refreshAudioDevices() {
+        audioDeviceCombo.removeAllItems()
+        audioDeviceCombo.addItem(DEFAULT_DEVICE)
+        audioService.listAvailableDevices().forEach { device ->
+            audioDeviceCombo.addItem(device.name)
+        }
+    }
+
+    private fun updateAudioToggleButton() {
+        audioToggleButton.text = if (audioEnabled) "Disable Audio" else "Enable Audio"
+        audioDeviceCombo.isEnabled = !audioEnabled || !service.isLogging
+    }
+
+    private fun updateAudioStatusLabel() {
+        val state = audioService.getState()
+        audioStatusLabel.text = when (state) {
+            AudioTranscriptionService.RecordingState.STOPPED -> if (audioEnabled) "Enabled" else ""
+            AudioTranscriptionService.RecordingState.INITIALIZING -> "Loading model..."
+            AudioTranscriptionService.RecordingState.RECORDING -> "Recording"
+            AudioTranscriptionService.RecordingState.PROCESSING -> "Processing..."
+            AudioTranscriptionService.RecordingState.ERROR -> "Error: ${audioService.getLastError() ?: "Unknown"}"
+        }
+    }
+
+    private fun updateAudioState(state: AudioTranscriptionService.RecordingState) {
+        when (state) {
+            AudioTranscriptionService.RecordingState.STOPPED -> {
+                audioStatusLabel.text = if (audioEnabled) "Enabled" else ""
+                audioToggleButton.isEnabled = true
+            }
+            AudioTranscriptionService.RecordingState.INITIALIZING -> {
+                audioStatusLabel.text = "Loading model..."
+                audioToggleButton.isEnabled = false
+            }
+            AudioTranscriptionService.RecordingState.RECORDING -> {
+                audioStatusLabel.text = "Recording"
+                audioToggleButton.isEnabled = true
+            }
+            AudioTranscriptionService.RecordingState.PROCESSING -> {
+                audioStatusLabel.text = "Processing..."
+                audioToggleButton.isEnabled = false
+            }
+            AudioTranscriptionService.RecordingState.ERROR -> {
+                val error = audioService.getLastError() ?: "Unknown error"
+                audioStatusLabel.text = "Error: $error"
+                audioToggleButton.isEnabled = true
+            }
+        }
+        updateAudioToggleButton()
     }
 
     private fun scheduleRefresh() {
@@ -105,7 +214,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     }
 
     private fun refreshList() {
-        val events = service.getEvents()
+        val events = service.getEvents().sortedBy { it.timestamp }
         val displayedEvents = events.takeLast(MAX_DISPLAYED_EVENTS)
         val items = displayedEvents.map { event ->
             val time = timeFormatter.format(event.timestamp)
@@ -128,6 +237,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
     override fun dispose() {
         service.removeChangeListener(changeListener)
+        audioService.removeStateListener(audioStateListener)
     }
 
     private class EventListCellRenderer : DefaultListCellRenderer() {

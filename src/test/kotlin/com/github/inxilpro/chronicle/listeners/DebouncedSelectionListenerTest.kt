@@ -10,6 +10,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
 
     fun testSelectionEventIsLogged() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -35,6 +36,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
 
     fun testSelectionEventContainsCorrectPath() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -55,6 +57,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
 
     fun testSelectionEventTracksLineNumbers() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -88,6 +91,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
 
     fun testSelectionEventCapturesSelectedText() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
@@ -110,6 +114,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
 
     fun testNoEventLoggedWithoutSelection() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
 
         val psiFile = myFixture.configureByText("NoSelection.kt", "val x = 1")
@@ -134,6 +139,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
 
     fun testDebounceOnlyLogsLastSelection() {
         val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
         service.resetSession()
         val initialEventCount = service.getEvents().size
 
