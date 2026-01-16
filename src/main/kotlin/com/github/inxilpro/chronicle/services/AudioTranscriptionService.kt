@@ -83,11 +83,7 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
     private var stopRequested = false
 
     fun startRecording(deviceName: String? = null) {
-        val currentState = state.get()
-        if (currentState == RecordingState.RECORDING) {
-            thisLogger().warn("Already recording")
-            return
-        }
+        if (state.get() == RecordingState.RECORDING) return
 
         stopRequested = false
 
@@ -96,7 +92,6 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
                 if (success && !stopRequested) {
                     doStartRecording(deviceName)
                 } else if (stopRequested) {
-                    thisLogger().info("Stop was requested during initialization, not starting recording")
                     setState(RecordingState.STOPPED)
                 }
             }
@@ -120,35 +115,24 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
     }
 
     fun stopRecording() {
-        val currentState = state.get()
-        thisLogger().info("stopRecording called, current state: $currentState")
-
-        when (currentState) {
+        when (state.get()) {
             RecordingState.INITIALIZING -> {
-                thisLogger().info("Stop requested during initialization")
                 stopRequested = true
             }
             RecordingState.RECORDING -> {
                 setState(RecordingState.PROCESSING)
 
                 try {
-                    thisLogger().info("Calling audioManager.stopRecording()...")
                     audioManager.stopRecording()
-                    thisLogger().info("audioManager.stopRecording() completed, hasChunks: ${audioManager.hasChunks()}")
-                    thisLogger().info("Calling processor.stopProcessing()...")
                     processor?.stopProcessing()
-                    thisLogger().info("processor.stopProcessing() completed")
                     setState(RecordingState.STOPPED)
-                    thisLogger().info("Stopped audio recording")
                 } catch (e: Exception) {
                     lastError = "Error while stopping recording: ${e.message}"
                     thisLogger().error("Error while stopping recording", e)
                     setState(RecordingState.STOPPED)
                 }
             }
-            else -> {
-                thisLogger().info("stopRecording: state is $currentState, nothing to stop")
-            }
+            else -> {}
         }
     }
 

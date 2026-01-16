@@ -4,7 +4,6 @@ import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.github.inxilpro.chronicle.services.AudioTranscriptionService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
@@ -106,24 +105,15 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         add(scrollPane, BorderLayout.CENTER)
 
         startStopButton.addActionListener {
-            thisLogger().info("Start/Stop button clicked. isLogging=${service.isLogging}, audioEnabled=$audioEnabled, audioState=${audioService.getState()}")
             if (service.isLogging) {
-                thisLogger().info("Stopping: calling service.stopLogging()")
                 service.stopLogging()
                 if (audioEnabled) {
-                    thisLogger().info("Stopping: audioEnabled=true, calling audioService.stopRecording()")
                     audioService.stopRecording()
-                } else {
-                    thisLogger().info("Stopping: audioEnabled=false, NOT calling audioService.stopRecording()")
                 }
             } else {
-                thisLogger().info("Starting: calling service.startLogging()")
                 service.startLogging()
                 if (audioEnabled && !audioService.isRecording()) {
-                    thisLogger().info("Starting: audioEnabled=true and not recording, calling startAudioRecording()")
                     startAudioRecording()
-                } else {
-                    thisLogger().info("Starting: audioEnabled=$audioEnabled, isRecording=${audioService.isRecording()}, NOT starting audio")
                 }
             }
         }

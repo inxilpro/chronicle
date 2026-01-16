@@ -94,76 +94,48 @@ class BatchTranscriptionProcessor(
         // Wait for any in-progress processing to complete
         var waitCount = 0
         while (processing.get() && waitCount < 50) {
-            thisLogger().info("Waiting for in-progress processing to complete...")
             Thread.sleep(100)
             waitCount++
         }
 
-        thisLogger().info("Processing remaining audio chunks...")
         processAllChunks()
-        thisLogger().info("Stopped batch transcription processing")
     }
 
     private fun processAllChunks() {
-        if (!processing.compareAndSet(false, true)) {
-            thisLogger().warn("Skipping chunk processing: already in progress")
-            return
-        }
+        if (!processing.compareAndSet(false, true)) return
 
         try {
-            var chunkCount = 0
             while (audioManager.hasChunks()) {
-                chunkCount++
                 processNextChunk()
             }
-            thisLogger().info("Processed $chunkCount audio chunks")
         } finally {
             processing.set(false)
         }
     }
 
     private fun processNextChunk() {
-        val chunk = audioManager.pollChunk() ?: run {
-            thisLogger().warn("pollChunk returned null")
-            return
-        }
-        val context = whisperContext ?: run {
-            thisLogger().warn("whisperContext is null")
-            return
-        }
-        val params = whisperParams ?: run {
-            thisLogger().warn("whisperParams is null")
-            return
-        }
-
-        thisLogger().info("Processing chunk: ${chunk.data.size} bytes, ${chunk.durationMs}ms")
+        val chunk = audioManager.pollChunk() ?: return
+        val context = whisperContext ?: return
+        val params = whisperParams ?: return
 
         try {
             var samples = convertBytesToFloats(chunk.data)
-            if (samples.isEmpty()) {
-                thisLogger().warn("Skipping empty audio chunk")
-                return
-            }
+            if (samples.isEmpty()) return
 
             // Whisper requires at least 1 second of audio (16000 samples at 16kHz)
             if (samples.size < MIN_SAMPLES) {
-                thisLogger().info("Padding short audio chunk from ${samples.size} to $MIN_SAMPLES samples")
                 samples = samples.copyOf(MIN_SAMPLES)
             }
 
-            thisLogger().info("Calling whisper.full with ${samples.size} samples")
             val whisper = WhisperJNI()
             val result = whisper.full(context, params, samples, samples.size)
-            thisLogger().info("Whisper returned result: $result")
 
             if (result == 0) {
                 val numSegments = whisper.fullNSegments(context)
-                thisLogger().info("Whisper found $numSegments segments")
                 val chunkTimestamp = Instant.ofEpochMilli(chunk.captureTime)
 
                 for (i in 0 until numSegments) {
                     val text = whisper.fullGetSegmentText(context, i)?.trim() ?: continue
-                    thisLogger().info("Segment $i raw text: '$text'")
                     if (text.isEmpty() || text.isBlank()) continue
 
                     val startTime = whisper.fullGetSegmentTimestamp0(context, i)
@@ -172,16 +144,16 @@ class BatchTranscriptionProcessor(
 
                     val segmentTimestamp = chunkTimestamp.plusMillis(startTime * 10)
 
-                    val event = AudioTranscriptionEvent(
-                        transcriptionText = text,
-                        durationMs = durationMs,
-                        language = "en",
-                        confidence = 0.9f,
-                        timestamp = segmentTimestamp
+                    transcriptService.log(
+                        AudioTranscriptionEvent(
+                            transcriptionText = text,
+                            durationMs = durationMs,
+                            language = "en",
+                            confidence = 0.9f,
+                            timestamp = segmentTimestamp
+                        ),
+                        allowBackfill = true
                     )
-                    thisLogger().info("Logging AudioTranscriptionEvent: ${text.take(50)}...")
-                    transcriptService.log(event, allowBackfill = true)
-                    thisLogger().info("Event logged successfully")
                 }
             } else {
                 thisLogger().error("Whisper transcription failed with result code: $result")
