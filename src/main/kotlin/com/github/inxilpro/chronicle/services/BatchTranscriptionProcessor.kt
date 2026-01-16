@@ -158,10 +158,12 @@ class BatchTranscriptionProcessor(
 
             if (result == 0) {
                 val numSegments = whisper.fullNSegments(context)
+                thisLogger().info("Whisper found $numSegments segments")
                 val chunkTimestamp = Instant.ofEpochMilli(chunk.captureTime)
 
                 for (i in 0 until numSegments) {
                     val text = whisper.fullGetSegmentText(context, i)?.trim() ?: continue
+                    thisLogger().info("Segment $i raw text: '$text'")
                     if (text.isEmpty() || text.isBlank()) continue
 
                     val startTime = whisper.fullGetSegmentTimestamp0(context, i)
@@ -170,16 +172,16 @@ class BatchTranscriptionProcessor(
 
                     val segmentTimestamp = chunkTimestamp.plusMillis(startTime * 10)
 
-                    transcriptService.log(
-                        AudioTranscriptionEvent(
-                            transcriptionText = text,
-                            durationMs = durationMs,
-                            language = "en",
-                            confidence = 0.9f,
-                            timestamp = segmentTimestamp
-                        )
+                    val event = AudioTranscriptionEvent(
+                        transcriptionText = text,
+                        durationMs = durationMs,
+                        language = "en",
+                        confidence = 0.9f,
+                        timestamp = segmentTimestamp
                     )
-                    thisLogger().debug("Transcribed segment: ${text.take(50)}...")
+                    thisLogger().info("Logging AudioTranscriptionEvent: ${text.take(50)}...")
+                    transcriptService.log(event)
+                    thisLogger().info("Event logged successfully")
                 }
             } else {
                 thisLogger().error("Whisper transcription failed with result code: $result")
