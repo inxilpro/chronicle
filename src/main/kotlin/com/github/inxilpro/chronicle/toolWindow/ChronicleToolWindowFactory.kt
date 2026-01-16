@@ -138,13 +138,6 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         service.addChangeListener(changeListener)
         audioService.addStateListener(audioStateListener)
 
-        if (!service.isLogging) {
-            service.startLogging()
-            if (audioEnabled) {
-                startAudioRecording()
-            }
-        }
-
         refreshAudioDevices()
         refreshList()
         updateButtonState()

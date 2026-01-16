@@ -3,7 +3,6 @@ package com.github.inxilpro.chronicle.listeners
 import com.github.inxilpro.chronicle.events.VisibleAreaEvent
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.VisibleAreaEvent as IdeaVisibleAreaEvent
 import com.intellij.openapi.editor.event.VisibleAreaListener
@@ -51,13 +50,31 @@ class VisibleAreaTracker(
     fun attachTo(editor: Editor) {
         if (attachedListeners.containsKey(editor)) return
 
-        val listener = VisibleAreaListener { _: IdeaVisibleAreaEvent ->
+        val listener = VisibleAreaListener { event: IdeaVisibleAreaEvent ->
             pendingJobs[editor]?.cancel(false)
 
+            // Capture visible range data immediately on the EDT
+            val visibleArea = event.newRectangle ?: return@VisibleAreaListener
+            val document = editor.document
+            val file = FileDocumentManager.getInstance().getFile(document) ?: return@VisibleAreaListener
+
+            val startOffset = editor.xyToLogicalPosition(java.awt.Point(0, visibleArea.y)).line
+            val endOffset = editor.xyToLogicalPosition(java.awt.Point(0, visibleArea.y + visibleArea.height)).line
+            val startLine = (startOffset + 1).coerceAtLeast(1)
+            val endLine = (endOffset + 1).coerceAtMost(document.lineCount)
+
+            if (startLine > endLine) return@VisibleAreaListener
+
+            val filePath = file.path
+            val contentDescription = "Lines $startLine-$endLine"
+
             pendingJobs[editor] = executor.schedule({
-                ApplicationManager.getApplication().runReadAction {
-                    logVisibleArea(editor)
-                }
+                transcriptService.log(VisibleAreaEvent(
+                    path = filePath,
+                    startLine = startLine,
+                    endLine = endLine,
+                    contentDescription = contentDescription
+                ))
             }, debounceMs, TimeUnit.MILLISECONDS)
         }
 
