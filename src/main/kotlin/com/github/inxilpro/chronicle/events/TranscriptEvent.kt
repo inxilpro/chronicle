@@ -157,9 +157,8 @@ data class AudioTranscriptionEvent(
     override val type: String = "audio_transcription"
 
     override fun summary(): String {
-        val speakerPrefix = speakerSegment?.let { "Speaker $it: " } ?: ""
         val preview = transcriptionText.take(100)
         val truncated = if (transcriptionText.length > 100) "..." else ""
-        return "$speakerPrefix$preview$truncated (${durationMs / 1000}s, ${(confidence * 100).toInt()}%)"
+        return "\"$preview$truncated\""
     }
 }
