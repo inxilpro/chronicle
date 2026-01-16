@@ -10,13 +10,8 @@ import com.intellij.util.messages.Topic
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Proxy
 
-/**
- * Tracks Git branch changes using defensive reflection-based access
- * to the git4idea plugin's GitRepository.GIT_REPO_CHANGE topic.
- *
- * This implementation degrades gracefully if git4idea is unavailable
- * or the API changes in future IDE versions.
- */
+// Uses reflection to avoid compile-time dependency on git4idea, allowing
+// graceful degradation if the plugin is unavailable or API changes.
 class GitBranchTracker(
     private val project: Project
 ) : Disposable {
@@ -43,12 +38,13 @@ class GitBranchTracker(
                 when (method.name) {
                     "repositoryChanged" -> {
                         handleRepositoryChanged(args?.getOrNull(0))
+                        null
                     }
                     "equals" -> this == args?.getOrNull(0)
                     "hashCode" -> this.hashCode()
                     "toString" -> "GitBranchTracker.Listener"
+                    else -> null
                 }
-                null
             }
 
             val listener = Proxy.newProxyInstance(
