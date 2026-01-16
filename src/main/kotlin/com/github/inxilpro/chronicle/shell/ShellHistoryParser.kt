@@ -21,8 +21,8 @@ enum class ShellType(val historyFileName: String) {
 
 open class ShellHistoryParser {
 
-    private val ZSH_EXTENDED_HISTORY_REGEX = Regex("""^: (\d+):\d+;(.*)$""")
-    private val BASH_TIMESTAMP_REGEX = Regex("""^#(\d+)$""")
+    private val zshExtendedHistoryRegex = Regex("""^: (\d+):\d+;(.*)$""")
+    private val bashTimestampRegex = Regex("""^#(\d+)$""")
 
     open fun parseRecentCommands(since: Instant, limit: Int = 100): List<ShellCommand> {
         return findHistoryFiles()
@@ -58,13 +58,13 @@ open class ShellHistoryParser {
         var currentTimestamp: Instant? = null
 
         for (line in lines) {
-            val match = ZSH_EXTENDED_HISTORY_REGEX.find(line)
+            val match = zshExtendedHistoryRegex.find(line)
             if (match != null) {
                 currentCommand?.let { cmd ->
-                    if (currentTimestamp != null && currentTimestamp!!.isAfter(since)) {
+                    currentTimestamp?.takeIf { it.isAfter(since) }?.let { ts ->
                         commands.add(ShellCommand(
                             command = cmd.toString().trim(),
-                            timestamp = currentTimestamp,
+                            timestamp = ts,
                             shell = "zsh"
                         ))
                     }
@@ -75,16 +75,16 @@ open class ShellHistoryParser {
                     null
                 }
                 currentCommand = StringBuilder(match.groupValues[2])
-            } else if (currentCommand != null) {
-                currentCommand.append("\n").append(line)
+            } else {
+                currentCommand?.append("\n")?.append(line)
             }
         }
 
         currentCommand?.let { cmd ->
-            if (currentTimestamp != null && currentTimestamp!!.isAfter(since)) {
+            currentTimestamp?.takeIf { it.isAfter(since) }?.let { ts ->
                 commands.add(ShellCommand(
                     command = cmd.toString().trim(),
-                    timestamp = currentTimestamp,
+                    timestamp = ts,
                     shell = "zsh"
                 ))
             }
@@ -99,7 +99,7 @@ open class ShellHistoryParser {
         var pendingTimestamp: Instant? = null
 
         for (line in lines) {
-            val timestampMatch = BASH_TIMESTAMP_REGEX.find(line)
+            val timestampMatch = bashTimestampRegex.find(line)
             if (timestampMatch != null) {
                 pendingTimestamp = try {
                     Instant.ofEpochSecond(timestampMatch.groupValues[1].toLong())
