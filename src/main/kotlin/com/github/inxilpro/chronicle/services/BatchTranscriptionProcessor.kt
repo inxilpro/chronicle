@@ -180,7 +180,7 @@ class BatchTranscriptionProcessor(
                         timestamp = segmentTimestamp
                     )
                     thisLogger().info("Logging AudioTranscriptionEvent: ${text.take(50)}...")
-                    transcriptService.log(event)
+                    transcriptService.log(event, allowBackfill = true)
                     thisLogger().info("Event logged successfully")
                 }
             } else {

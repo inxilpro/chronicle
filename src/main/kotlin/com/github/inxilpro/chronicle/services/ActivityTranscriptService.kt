@@ -54,8 +54,8 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
         debounceTimers.clear()
     }
 
-    fun log(event: TranscriptEvent) {
-        if (!isLogging) return
+    fun log(event: TranscriptEvent, allowBackfill: Boolean = false) {
+        if (!isLogging && !allowBackfill) return
         events.add(event)
         thisLogger().debug("Logged event: ${event.type} at ${event.timestamp}")
         notifyListeners()
