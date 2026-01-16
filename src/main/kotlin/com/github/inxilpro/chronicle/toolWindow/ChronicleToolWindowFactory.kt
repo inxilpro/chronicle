@@ -2,8 +2,11 @@ package com.github.inxilpro.chronicle.toolWindow
 
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.github.inxilpro.chronicle.services.AudioTranscriptionService
+import com.github.inxilpro.chronicle.services.EventLogExporter
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.fileChooser.FileChooserFactory
+import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
@@ -49,6 +52,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val eventList = JBList(listModel)
     private val startStopButton = JButton("Stop")
     private val resetButton = JButton("Reset")
+    private val exportButton = JButton("Export JSON")
     private val statusLabel = JBLabel()
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
     private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
@@ -77,6 +81,8 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(startStopButton)
             add(Box.createHorizontalStrut(8))
             add(resetButton)
+            add(Box.createHorizontalStrut(8))
+            add(exportButton)
             add(Box.createHorizontalGlue())
             add(statusLabel)
         }
@@ -121,6 +127,10 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
         resetButton.addActionListener {
             service.resetSession()
+        }
+
+        exportButton.addActionListener {
+            exportEventLog()
         }
 
         audioToggleButton.addActionListener {
@@ -233,6 +243,33 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         val totalEvents = service.getEvents().size
         val truncatedNote = if (totalEvents > MAX_DISPLAYED_EVENTS) " (showing last $MAX_DISPLAYED_EVENTS)" else ""
         statusLabel.text = "$totalEvents events$truncatedNote"
+        exportButton.isEnabled = totalEvents > 0
+    }
+
+    private fun exportEventLog() {
+        val events = service.getEvents()
+        if (events.isEmpty()) return
+
+        val descriptor = FileSaverDescriptor(
+            "Export Event Log",
+            "Save the event log as JSON",
+            "json"
+        )
+        val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
+        val defaultFileName = "chronicle-${service.getProjectName()}-${System.currentTimeMillis()}.json"
+        val wrapper = dialog.save(null, defaultFileName) ?: return
+
+        val json = EventLogExporter.exportToJson(
+            events = events,
+            sessionStart = service.getSessionStart(),
+            projectName = service.getProjectName()
+        )
+
+        ApplicationManager.getApplication().runWriteAction {
+            wrapper.getVirtualFile(true)?.let { file ->
+                file.setBinaryContent(json.toByteArray(Charsets.UTF_8))
+            }
+        }
     }
 
     override fun dispose() {
