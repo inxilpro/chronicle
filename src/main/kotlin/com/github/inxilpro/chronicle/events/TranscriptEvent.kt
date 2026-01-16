@@ -10,13 +10,6 @@ sealed interface TranscriptEvent {
     fun toJson(): JsonObject
 }
 
-fun createBaseJson(event: TranscriptEvent): JsonObject {
-    val json = JsonObject()
-    json.addProperty("type", event.type)
-    json.addProperty("timestamp", event.timestamp.toString())
-    return json
-}
-
 data class FileOpenedEvent(
     val path: String,
     val isInitial: Boolean = false,
@@ -24,9 +17,13 @@ data class FileOpenedEvent(
 ) : TranscriptEvent {
     override val type: String = "file_opened"
     override fun summary() = "Opened ${path.substringAfterLast("/")}" + if (isInitial) " (initial)" else ""
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("path", path)
-        addProperty("isInitial", isInitial)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("path", path)
+        json.addProperty("isInitial", isInitial)
+        return json
     }
 }
 
@@ -36,8 +33,12 @@ data class FileClosedEvent(
 ) : TranscriptEvent {
     override val type: String = "file_closed"
     override fun summary() = "Closed ${path.substringAfterLast("/")}"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("path", path)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("path", path)
+        return json
     }
 }
 
@@ -48,9 +49,13 @@ data class FileSelectedEvent(
 ) : TranscriptEvent {
     override val type: String = "file_selected"
     override fun summary() = "Selected ${path.substringAfterLast("/")}"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("path", path)
-        addProperty("previousPath", previousPath)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("path", path)
+        json.addProperty("previousPath", previousPath)
+        return json
     }
 }
 
@@ -60,8 +65,12 @@ data class RecentFileEvent(
 ) : TranscriptEvent {
     override val type: String = "recent_file"
     override fun summary() = "Recent: ${path.substringAfterLast("/")}"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("path", path)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("path", path)
+        return json
     }
 }
 
@@ -78,11 +87,15 @@ data class SelectionEvent(
         val lines = if (startLine == endLine) "line $startLine" else "lines $startLine-$endLine"
         return "Selected $lines in $file"
     }
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("path", path)
-        addProperty("startLine", startLine)
-        addProperty("endLine", endLine)
-        addProperty("text", text)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("path", path)
+        json.addProperty("startLine", startLine)
+        json.addProperty("endLine", endLine)
+        json.addProperty("text", text)
+        return json
     }
 }
 
@@ -93,9 +106,13 @@ data class DocumentChangedEvent(
 ) : TranscriptEvent {
     override val type: String = "document_changed"
     override fun summary() = "Modified ${path.substringAfterLast("/")}"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("path", path)
-        addProperty("lineCount", lineCount)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("path", path)
+        json.addProperty("lineCount", lineCount)
+        return json
     }
 }
 
@@ -108,11 +125,15 @@ data class VisibleAreaEvent(
 ) : TranscriptEvent {
     override val type: String = "visible_area"
     override fun summary() = "Viewing ${path.substringAfterLast("/")}:$startLine-$endLine"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("path", path)
-        addProperty("startLine", startLine)
-        addProperty("endLine", endLine)
-        addProperty("contentDescription", contentDescription)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("path", path)
+        json.addProperty("startLine", startLine)
+        json.addProperty("endLine", endLine)
+        json.addProperty("contentDescription", contentDescription)
+        return json
     }
 }
 
@@ -122,8 +143,12 @@ data class FileCreatedEvent(
 ) : TranscriptEvent {
     override val type: String = "file_created"
     override fun summary() = "Created ${path.substringAfterLast("/")}"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("path", path)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("path", path)
+        return json
     }
 }
 
@@ -133,8 +158,12 @@ data class FileDeletedEvent(
 ) : TranscriptEvent {
     override val type: String = "file_deleted"
     override fun summary() = "Deleted ${path.substringAfterLast("/")}"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("path", path)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("path", path)
+        return json
     }
 }
 
@@ -145,9 +174,13 @@ data class FileRenamedEvent(
 ) : TranscriptEvent {
     override val type: String = "file_renamed"
     override fun summary() = "Renamed ${oldPath.substringAfterLast("/")} → ${newPath.substringAfterLast("/")}"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("oldPath", oldPath)
-        addProperty("newPath", newPath)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("oldPath", oldPath)
+        json.addProperty("newPath", newPath)
+        return json
     }
 }
 
@@ -158,9 +191,13 @@ data class FileMovedEvent(
 ) : TranscriptEvent {
     override val type: String = "file_moved"
     override fun summary() = "Moved ${oldPath.substringAfterLast("/")} → ${newPath.substringAfterLast("/")}"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("oldPath", oldPath)
-        addProperty("newPath", newPath)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("oldPath", oldPath)
+        json.addProperty("newPath", newPath)
+        return json
     }
 }
 
@@ -172,10 +209,14 @@ data class BranchChangedEvent(
 ) : TranscriptEvent {
     override val type: String = "branch_changed"
     override fun summary() = "Branch: ${branch ?: "detached"}"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("repository", repository)
-        addProperty("branch", branch)
-        addProperty("state", state)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("repository", repository)
+        json.addProperty("branch", branch)
+        json.addProperty("state", state)
+        return json
     }
 }
 
@@ -185,8 +226,12 @@ data class SearchEvent(
 ) : TranscriptEvent {
     override val type: String = "search"
     override fun summary() = "Search: $query"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("query", query)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("query", query)
+        return json
     }
 }
 
@@ -197,9 +242,13 @@ data class RefactoringEvent(
 ) : TranscriptEvent {
     override val type: String = "refactoring"
     override fun summary() = "Refactoring: $refactoringType"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("refactoringType", refactoringType)
-        addProperty("details", details)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("refactoringType", refactoringType)
+        json.addProperty("details", details)
+        return json
     }
 }
 
@@ -209,8 +258,12 @@ data class RefactoringUndoEvent(
 ) : TranscriptEvent {
     override val type: String = "refactoring_undo"
     override fun summary() = "Undo: $refactoringType"
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("refactoringType", refactoringType)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("refactoringType", refactoringType)
+        return json
     }
 }
 
@@ -230,11 +283,15 @@ data class AudioTranscriptionEvent(
         return "\"$preview$truncated\""
     }
 
-    override fun toJson() = createBaseJson(this).apply {
-        addProperty("transcriptionText", transcriptionText)
-        addProperty("durationMs", durationMs)
-        addProperty("language", language)
-        addProperty("confidence", confidence)
-        addProperty("speakerSegment", speakerSegment)
+    override fun toJson(): JsonObject {
+        val json = JsonObject()
+        json.addProperty("type", type)
+        json.addProperty("timestamp", timestamp.toString())
+        json.addProperty("transcriptionText", transcriptionText)
+        json.addProperty("durationMs", durationMs)
+        json.addProperty("language", language)
+        json.addProperty("confidence", confidence)
+        json.addProperty("speakerSegment", speakerSegment)
+        return json
     }
 }
