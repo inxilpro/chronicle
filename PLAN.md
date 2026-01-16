@@ -349,11 +349,20 @@ class VisibleAreaTracker(
 
 ---
 
-### 6. Search Everywhere — Defensive Internal API Usage
+### 6. Search Everywhere — Defensive Internal API Usage ✅ IMPLEMENTED
 
 **API**: `SearchEverywhereUI.SEARCH_EVENTS` (marked `@Internal`)
 
 **Approach**: Wrap in try-catch, degrade gracefully
+
+**Implementation**: `listeners/SearchEverywhereTracker.kt`
+
+The following has been implemented:
+- `SearchEverywhereTracker` class using reflection-based access to internal API
+- Defensive registration with try-catch blocks for each potential failure point
+- Graceful degradation with logging when API is unavailable
+- `SearchEvent` type already exists in `TranscriptEvent.kt`
+- Registered via `ActivityTranscriptService.registerListeners()`
 
 ```kotlin
 class SearchEverywhereTracker(private val service: ActivityTranscriptService) {
