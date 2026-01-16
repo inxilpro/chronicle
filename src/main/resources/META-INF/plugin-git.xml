@@ -1,0 +1,5 @@
+<!-- Git4Idea integration extensions -->
+<idea-plugin>
+    <!-- Git-specific extensions loaded only when Git4Idea is available -->
+    <!-- The actual git tracking is done via reflection in GitBranchTracker -->
+</idea-plugin>
