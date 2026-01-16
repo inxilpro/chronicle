@@ -404,30 +404,110 @@ class SearchEverywhereTracker(private val service: ActivityTranscriptService) {
 
 ---
 
-### 7. Git Branch Changes — GitRepository Listener
+### 7. Git Branch Changes — GitRepository Listener ✅ IMPLEMENTED
 
 **API**: `GitRepository.GIT_REPO_CHANGE` topic from `git4idea` plugin
 
 **Dependency**: Add to `plugin.xml`:
 ```xml
-<depends>Git4Idea</depends>
+<depends optional="true" config-file="plugin-git.xml">Git4Idea</depends>
 ```
 
+**Implementation**: `listeners/GitBranchTracker.kt`
+
+The following has been implemented:
+- `GitBranchTracker` class using defensive reflection-based access to git4idea API
+- Optional dependency on Git4Idea in `plugin.xml`
+- `plugin-git.xml` configuration file for git-specific extensions
+- Registration via `ActivityTranscriptService.registerListeners()`
+- Graceful degradation with logging when Git4Idea is unavailable
+- `BranchChangedEvent` type already exists in `TranscriptEvent.kt`
+- Comprehensive test coverage in `GitBranchTrackerTest.kt`
+
 ```kotlin
-class GitBranchTracker(private val service: ActivityTranscriptService) {
-    
-    fun register(project: Project) {
-        project.messageBus.connect().subscribe(
-            GitRepository.GIT_REPO_CHANGE,
-            GitRepositoryChangeListener { repository ->
-                val branch = repository.currentBranch?.name ?: repository.currentRevision?.take(8)
-                service.log(BranchChangedEvent(
-                    repository = repository.root.path,
-                    branch = branch,
-                    state = repository.state.name // NORMAL, MERGING, REBASING, etc.
-                ))
+class GitBranchTracker(
+    private val project: Project
+) : Disposable {
+
+    private val transcriptService: ActivityTranscriptService
+        get() = ActivityTranscriptService.getInstance(project)
+
+    private var isRegistered = false
+
+    fun tryRegister() {
+        if (isRegistered) return
+
+        try {
+            val gitRepositoryClass = Class.forName("git4idea.repo.GitRepository")
+            val topicField = gitRepositoryClass.getDeclaredField("GIT_REPO_CHANGE")
+            topicField.isAccessible = true
+
+            @Suppress("UNCHECKED_CAST")
+            val topic = topicField.get(null) as Topic<Any>
+
+            val listenerClass = Class.forName("git4idea.repo.GitRepositoryChangeListener")
+
+            val handler = InvocationHandler { _, method, args ->
+                when (method.name) {
+                    "repositoryChanged" -> {
+                        handleRepositoryChanged(args?.getOrNull(0))
+                    }
+                    "equals" -> this == args?.getOrNull(0)
+                    "hashCode" -> this.hashCode()
+                    "toString" -> "GitBranchTracker.Listener"
+                }
+                null
             }
-        )
+
+            val listener = Proxy.newProxyInstance(
+                javaClass.classLoader,
+                arrayOf(listenerClass),
+                handler
+            )
+
+            val connection = project.messageBus.connect(this)
+            connection.subscribe(topic, listener)
+
+            isRegistered = true
+            thisLogger().info("Git branch tracking registered successfully")
+
+        } catch (e: ClassNotFoundException) {
+            thisLogger().info("Git branch tracking unavailable: git4idea plugin not found")
+        } catch (e: NoSuchFieldException) {
+            thisLogger().warn("Git branch tracking unavailable: GIT_REPO_CHANGE field not found")
+        } catch (e: Exception) {
+            thisLogger().warn("Git branch tracking unavailable: ${e.message}")
+        }
+    }
+
+    private fun handleRepositoryChanged(repository: Any?) {
+        if (repository == null) return
+
+        try {
+            val repoClass = repository.javaClass
+            val rootPath = extractRootPath(repository, repoClass)
+            val branchName = extractBranchName(repository, repoClass)
+            val stateName = extractStateName(repository, repoClass)
+
+            transcriptService.log(
+                BranchChangedEvent(
+                    repository = rootPath ?: "unknown",
+                    branch = branchName,
+                    state = stateName ?: "UNKNOWN"
+                )
+            )
+        } catch (e: Exception) {
+            thisLogger().debug("Failed to extract git repository info: ${e.message}")
+        }
+    }
+
+    companion object {
+        fun register(project: Project, parentDisposable: Disposable): GitBranchTracker {
+            val tracker = GitBranchTracker(project)
+            tracker.tryRegister()
+            Disposer.register(parentDisposable, tracker)
+            return tracker
+        }
     }
 }
 ```

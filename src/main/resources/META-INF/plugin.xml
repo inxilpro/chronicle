@@ -5,6 +5,7 @@
     <vendor>inxilpro</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends optional="true" config-file="plugin-git.xml">Git4Idea</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
