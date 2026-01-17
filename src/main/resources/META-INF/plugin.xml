@@ -14,6 +14,12 @@
                     icon="AllIcons.CodeWithMe.CwmCamOn"/>
         <projectService serviceImplementation="com.github.inxilpro.chronicle.services.ActivityTranscriptService"/>
         <projectService serviceImplementation="com.github.inxilpro.chronicle.services.AudioTranscriptionService"/>
+        <projectService serviceImplementation="com.github.inxilpro.chronicle.settings.ChronicleSettings"/>
+        <projectConfigurable
+            parentId="tools"
+            instance="com.github.inxilpro.chronicle.settings.ChronicleConfigurable"
+            id="com.github.inxilpro.chronicle.settings.ChronicleConfigurable"
+            displayName="Chronicle"/>
     </extensions>
 
     <projectListeners>

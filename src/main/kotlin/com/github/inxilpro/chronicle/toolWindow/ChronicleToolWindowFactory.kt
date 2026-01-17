@@ -1,5 +1,6 @@
 package com.github.inxilpro.chronicle.toolWindow
 
+import com.github.inxilpro.chronicle.export.TranscriptExporter
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.github.inxilpro.chronicle.services.AudioTranscriptionService
 import com.intellij.openapi.Disposable
@@ -49,6 +50,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val eventList = JBList(listModel)
     private val startStopButton = JButton("Stop")
     private val resetButton = JButton("Reset")
+    private val exportButton = JButton("Export")
     private val statusLabel = JBLabel()
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
     private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
@@ -77,6 +79,8 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(startStopButton)
             add(Box.createHorizontalStrut(8))
             add(resetButton)
+            add(Box.createHorizontalStrut(8))
+            add(exportButton)
             add(Box.createHorizontalGlue())
             add(statusLabel)
         }
@@ -121,6 +125,10 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
         resetButton.addActionListener {
             service.resetSession()
+        }
+
+        exportButton.addActionListener {
+            TranscriptExporter.getInstance(project).export()
         }
 
         audioToggleButton.addActionListener {
