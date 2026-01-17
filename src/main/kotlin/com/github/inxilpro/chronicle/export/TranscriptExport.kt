@@ -12,5 +12,6 @@ data class SessionMetadata(
     val projectName: String,
     val sessionStart: Instant,
     val exportedAt: Instant,
-    val eventCount: Int
+    val eventCount: Int,
+    val gitBranch: String?
 )
