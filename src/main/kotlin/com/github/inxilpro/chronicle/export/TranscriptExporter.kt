@@ -4,6 +4,10 @@ import com.github.inxilpro.chronicle.events.*
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.github.inxilpro.chronicle.settings.ChronicleSettings
 import com.github.inxilpro.chronicle.settings.ExportFormat
+import com.google.gson.GsonBuilder
+import com.google.gson.TypeAdapter
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
 import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import com.intellij.openapi.project.Project
@@ -15,6 +19,11 @@ class TranscriptExporter(private val project: Project) {
 
     private val service = ActivityTranscriptService.getInstance(project)
     private val settings = ChronicleSettings.getInstance(project)
+
+    private val gson = GsonBuilder()
+        .setPrettyPrinting()
+        .registerTypeAdapter(Instant::class.java, InstantAdapter())
+        .create()
 
     fun export() {
         val extension = when (settings.exportFormat) {
@@ -52,85 +61,129 @@ class TranscriptExporter(private val project: Project) {
         val sessionStart = service.getSessionStart()
         val sessionEnd = events.lastOrNull()?.timestamp ?: Instant.now()
 
-        val sb = StringBuilder()
-        sb.appendLine("{")
-        sb.appendLine("""  "session": {""")
-        sb.appendLine("""    "start": "${DateTimeFormatter.ISO_INSTANT.format(sessionStart)}",""")
-        sb.appendLine("""    "end": "${DateTimeFormatter.ISO_INSTANT.format(sessionEnd)}",""")
-        sb.appendLine("""    "project": "${escapeJson(service.getProjectName())}" """)
-        sb.appendLine("  },")
-
         val initialFiles = events.filterIsInstance<FileOpenedEvent>().filter { it.isInitial }
         val recentFiles = events.filterIsInstance<RecentFileEvent>()
-
-        sb.appendLine("""  "initialState": {""")
-        sb.appendLine("""    "openFiles": [${initialFiles.joinToString(", ") { """"${escapeJson(it.path)}"""" }}],""")
-        sb.appendLine("""    "recentFiles": [${recentFiles.joinToString(", ") { """"${escapeJson(it.path)}"""" }}]""")
-        sb.appendLine("  },")
-
-        sb.appendLine("""  "events": [""")
         val regularEvents = events.filter { it !is RecentFileEvent && !(it is FileOpenedEvent && it.isInitial) }
-        regularEvents.forEachIndexed { index, event ->
-            sb.append("    ")
-            sb.append(eventToJson(event))
-            if (index < regularEvents.size - 1) sb.append(",")
-            sb.appendLine()
-        }
-        sb.appendLine("  ]")
 
-        sb.appendLine("}")
-        return sb.toString()
+        val exportData = SessionExport(
+            session = SessionInfo(
+                start = sessionStart,
+                end = sessionEnd,
+                project = service.getProjectName()
+            ),
+            initialState = InitialState(
+                openFiles = initialFiles.map { it.path },
+                recentFiles = recentFiles.map { it.path }
+            ),
+            events = regularEvents.map { it.toExportEvent() }
+        )
+
+        return gson.toJson(exportData)
     }
 
-    private fun eventToJson(event: TranscriptEvent): String {
-        val timestamp = DateTimeFormatter.ISO_INSTANT.format(event.timestamp)
-        return when (event) {
-            is FileOpenedEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "path": "${escapeJson(event.path)}"}"""
-            is FileClosedEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "path": "${escapeJson(event.path)}"}"""
+    private fun TranscriptEvent.toExportEvent(): Map<String, Any?> {
+        val base = mutableMapOf<String, Any?>(
+            "type" to type,
+            "timestamp" to timestamp
+        )
+
+        when (this) {
+            is FileOpenedEvent -> base["path"] = path
+            is FileClosedEvent -> base["path"] = path
             is FileSelectedEvent -> {
-                val prev = event.previousPath?.let { """, "previousPath": "${escapeJson(it)}"""" } ?: ""
-                """{"type": "${event.type}", "timestamp": "$timestamp", "path": "${escapeJson(event.path)}"$prev}"""
+                base["path"] = path
+                previousPath?.let { base["previousPath"] = it }
             }
-            is RecentFileEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "path": "${escapeJson(event.path)}"}"""
+            is RecentFileEvent -> base["path"] = path
             is SelectionEvent -> {
-                val textPart = event.text?.let { """, "text": "${escapeJson(it)}"""" } ?: ""
-                """{"type": "${event.type}", "timestamp": "$timestamp", "path": "${escapeJson(event.path)}", "startLine": ${event.startLine}, "endLine": ${event.endLine}$textPart}"""
+                base["path"] = path
+                base["startLine"] = startLine
+                base["endLine"] = endLine
+                text?.let { base["text"] = it }
             }
-            is DocumentChangedEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "path": "${escapeJson(event.path)}", "lineCount": ${event.lineCount}}"""
-            is VisibleAreaEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "path": "${escapeJson(event.path)}", "startLine": ${event.startLine}, "endLine": ${event.endLine}, "contentDescription": "${escapeJson(event.contentDescription)}"}"""
-            is FileCreatedEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "path": "${escapeJson(event.path)}"}"""
-            is FileDeletedEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "path": "${escapeJson(event.path)}"}"""
-            is FileRenamedEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "oldPath": "${escapeJson(event.oldPath)}", "newPath": "${escapeJson(event.newPath)}"}"""
-            is FileMovedEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "oldPath": "${escapeJson(event.oldPath)}", "newPath": "${escapeJson(event.newPath)}"}"""
+            is DocumentChangedEvent -> {
+                base["path"] = path
+                base["lineCount"] = lineCount
+            }
+            is VisibleAreaEvent -> {
+                base["path"] = path
+                base["startLine"] = startLine
+                base["endLine"] = endLine
+                base["contentDescription"] = contentDescription
+            }
+            is FileCreatedEvent -> base["path"] = path
+            is FileDeletedEvent -> base["path"] = path
+            is FileRenamedEvent -> {
+                base["oldPath"] = oldPath
+                base["newPath"] = newPath
+            }
+            is FileMovedEvent -> {
+                base["oldPath"] = oldPath
+                base["newPath"] = newPath
+            }
             is BranchChangedEvent -> {
-                val branch = event.branch?.let { """"${escapeJson(it)}"""" } ?: "null"
-                """{"type": "${event.type}", "timestamp": "$timestamp", "repository": "${escapeJson(event.repository)}", "branch": $branch, "state": "${escapeJson(event.state)}"}"""
+                base["repository"] = repository
+                base["branch"] = branch
+                base["state"] = state
             }
-            is SearchEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "query": "${escapeJson(event.query)}"}"""
-            is RefactoringEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "refactoringType": "${escapeJson(event.refactoringType)}", "details": "${escapeJson(event.details)}"}"""
-            is RefactoringUndoEvent -> """{"type": "${event.type}", "timestamp": "$timestamp", "refactoringType": "${escapeJson(event.refactoringType)}"}"""
+            is SearchEvent -> base["query"] = query
+            is RefactoringEvent -> {
+                base["refactoringType"] = refactoringType
+                base["details"] = details
+            }
+            is RefactoringUndoEvent -> base["refactoringType"] = refactoringType
             is AudioTranscriptionEvent -> {
-                val speaker = event.speakerSegment?.let { """, "speakerSegment": $it""" } ?: ""
-                """{"type": "${event.type}", "timestamp": "$timestamp", "transcriptionText": "${escapeJson(event.transcriptionText)}", "durationMs": ${event.durationMs}, "language": "${escapeJson(event.language)}", "confidence": ${event.confidence}$speaker}"""
+                base["transcriptionText"] = transcriptionText
+                base["durationMs"] = durationMs
+                base["language"] = language
+                base["confidence"] = confidence
+                speakerSegment?.let { base["speakerSegment"] = it }
             }
             is ShellCommandEvent -> {
-                val wd = event.workingDirectory?.let { """, "workingDirectory": "${escapeJson(it)}"""" } ?: ""
-                """{"type": "${event.type}", "timestamp": "$timestamp", "command": "${escapeJson(event.command)}", "shell": "${escapeJson(event.shell)}"$wd}"""
+                base["command"] = command
+                base["shell"] = shell
+                workingDirectory?.let { base["workingDirectory"] = it }
             }
         }
-    }
 
-    private fun escapeJson(s: String): String {
-        return s.replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-            .replace("\t", "\\t")
+        return base
     }
 
     companion object {
         fun getInstance(project: Project): TranscriptExporter {
             return TranscriptExporter(project)
         }
+    }
+}
+
+private data class SessionExport(
+    val session: SessionInfo,
+    val initialState: InitialState,
+    val events: List<Map<String, Any?>>
+)
+
+private data class SessionInfo(
+    val start: Instant,
+    val end: Instant,
+    val project: String
+)
+
+private data class InitialState(
+    val openFiles: List<String>,
+    val recentFiles: List<String>
+)
+
+private class InstantAdapter : TypeAdapter<Instant>() {
+    override fun write(out: JsonWriter, value: Instant?) {
+        if (value == null) {
+            out.nullValue()
+        } else {
+            out.value(DateTimeFormatter.ISO_INSTANT.format(value))
+        }
+    }
+
+    override fun read(`in`: JsonReader): Instant? {
+        val value = `in`.nextString()
+        return Instant.parse(value)
     }
 }
