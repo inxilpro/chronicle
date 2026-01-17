@@ -6,6 +6,7 @@ import com.github.inxilpro.chronicle.events.TranscriptEvent
 import com.github.inxilpro.chronicle.listeners.DebouncedSelectionListener
 import com.github.inxilpro.chronicle.listeners.DocumentChangeListener
 import com.github.inxilpro.chronicle.listeners.FileSystemListener
+import com.github.inxilpro.chronicle.listeners.GitBranchHelper
 import com.github.inxilpro.chronicle.listeners.GitBranchTracker
 import com.github.inxilpro.chronicle.listeners.SearchEverywhereTracker
 import com.github.inxilpro.chronicle.listeners.VisibleAreaTracker
@@ -33,6 +34,7 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
 
     private val events: MutableList<TranscriptEvent> = CopyOnWriteArrayList()
     private var sessionStart: Instant = Instant.now()
+    private var sessionGitBranch: String? = null
     private val debounceTimers: MutableMap<String, ScheduledFuture<*>> = mutableMapOf()
     private val changeListeners: MutableList<TranscriptChangeListener> = CopyOnWriteArrayList()
     internal var documentChangeListener: DocumentChangeListener? = null
@@ -75,11 +77,14 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
 
     fun getSessionStart(): Instant = sessionStart
 
+    fun getSessionGitBranch(): String? = sessionGitBranch
+
     fun getProjectName(): String = project.name
 
     fun resetSession() {
         events.clear()
         sessionStart = Instant.now()
+        sessionGitBranch = GitBranchHelper.getCurrentBranch(project)
         thisLogger().info("Session reset for project: ${project.name}")
         captureInitialState()
         notifyListeners()
@@ -89,6 +94,7 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
         val shouldCaptureInitialState = events.isEmpty()
         isLogging = true
         if (shouldCaptureInitialState) {
+            sessionGitBranch = GitBranchHelper.getCurrentBranch(project)
             captureInitialState()
         }
         shellHistoryTracker?.startTracking(sessionStart)

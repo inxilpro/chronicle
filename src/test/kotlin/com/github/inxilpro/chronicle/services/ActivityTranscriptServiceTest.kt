@@ -23,6 +23,14 @@ class ActivityTranscriptServiceTest : BasePlatformTestCase() {
         assertNotNull(service.getSessionStart())
     }
 
+    fun testServiceHasGitBranchGetter() {
+        val service = project.service<ActivityTranscriptService>()
+        service.startLogging()
+        // Git branch will be null in tests since git4idea plugin is not available
+        // but the getter should exist and not throw
+        service.getSessionGitBranch()
+    }
+
     fun testLogEvent() {
         val service = project.service<ActivityTranscriptService>()
         service.startLogging()

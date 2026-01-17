@@ -28,7 +28,8 @@ class TranscriptExportService(private val project: Project) {
                 projectName = transcriptService.getProjectName(),
                 sessionStart = transcriptService.getSessionStart(),
                 exportedAt = Instant.now(),
-                eventCount = transcriptService.getEvents().size
+                eventCount = transcriptService.getEvents().size,
+                gitBranch = transcriptService.getSessionGitBranch()
             ),
             events = transcriptService.getEvents()
         )

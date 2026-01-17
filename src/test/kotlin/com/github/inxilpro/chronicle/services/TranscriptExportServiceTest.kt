@@ -24,6 +24,7 @@ class TranscriptExportServiceTest : BasePlatformTestCase() {
             assertTrue(json.contains("\"projectName\""))
             assertTrue(json.contains("\"sessionStart\""))
             assertTrue(json.contains("\"exportedAt\""))
+            assertTrue(json.contains("\"gitBranch\":"))
         } finally {
             tempFile.delete()
         }
