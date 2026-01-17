@@ -2,9 +2,10 @@ package com.github.inxilpro.chronicle.export
 
 import com.github.inxilpro.chronicle.events.*
 import com.google.gson.GsonBuilder
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
-import kotlin.test.assertTrue
 
 class TranscriptEventTypeAdapterTest {
 
@@ -69,7 +70,7 @@ class TranscriptEventTypeAdapterTest {
     fun testDoesNotIncludeSummary() {
         val event = FileOpenedEvent("/test.kt")
         val json = gson.toJson(event, TranscriptEvent::class.java)
-        assertTrue(!json.contains("\"summary\""))
-        assertTrue(!json.contains("Opened"))
+        assertFalse(json.contains("\"summary\""))
+        assertFalse(json.contains("Opened"))
     }
 }

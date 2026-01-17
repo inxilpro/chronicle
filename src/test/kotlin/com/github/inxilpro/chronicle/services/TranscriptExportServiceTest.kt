@@ -5,7 +5,6 @@ import com.github.inxilpro.chronicle.events.FileOpenedEvent
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.io.File
-import kotlin.test.assertTrue
 
 class TranscriptExportServiceTest : BasePlatformTestCase() {
 
@@ -79,7 +78,7 @@ class TranscriptExportServiceTest : BasePlatformTestCase() {
             service.exportToJson(tempFile)
 
             val json = tempFile.readText()
-            assertTrue(!json.contains("\"summary\""))
+            assertFalse(json.contains("\"summary\""))
         } finally {
             tempFile.delete()
         }

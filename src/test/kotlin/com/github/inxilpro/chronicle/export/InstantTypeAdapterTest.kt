@@ -2,10 +2,10 @@ package com.github.inxilpro.chronicle.export
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class InstantTypeAdapterTest {
 
