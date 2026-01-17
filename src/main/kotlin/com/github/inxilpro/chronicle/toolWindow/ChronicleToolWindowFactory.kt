@@ -25,6 +25,7 @@ import java.awt.BorderLayout
 import java.awt.Container
 import java.awt.Dimension
 import java.awt.FlowLayout
+import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -262,8 +263,9 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
         val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
         val defaultName = "chronicle-${project.name}-${timestamp}.json"
+        val basePath = project.basePath?.let { Path.of(it) }
 
-        val fileWrapper = dialog.save(project.basePath, defaultName)
+        val fileWrapper = dialog.save(basePath, defaultName)
         if (fileWrapper != null) {
             try {
                 val exportService = TranscriptExportService.getInstance(project)
