@@ -41,8 +41,8 @@ class TranscriptExportServiceTest : BasePlatformTestCase() {
             service.exportToJson(tempFile)
 
             val json = tempFile.readText()
-            assertTrue(json.contains("\"type\":\"file_opened\""))
-            assertTrue(json.contains("\"type\":\"file_closed\""))
+            assertTrue(json.contains("\"type\": \"file_opened\""))
+            assertTrue(json.contains("\"type\": \"file_closed\""))
             assertTrue(json.contains("\"/test.kt\""))
         } finally {
             tempFile.delete()
@@ -60,7 +60,7 @@ class TranscriptExportServiceTest : BasePlatformTestCase() {
             service.exportToJson(tempFile)
 
             val json = tempFile.readText()
-            val timestampPattern = Regex(""""timestamp":"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z"""")
+            val timestampPattern = Regex(""""timestamp": "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z"""")
             assertTrue(timestampPattern.containsMatchIn(json))
         } finally {
             tempFile.delete()
