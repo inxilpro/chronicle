@@ -33,6 +33,7 @@ repositories {
 dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
+    testImplementation(libs.gson)
 
     // WhisperJNI for local audio transcription
     implementation("io.github.givimad:whisper-jni:1.7.1")
