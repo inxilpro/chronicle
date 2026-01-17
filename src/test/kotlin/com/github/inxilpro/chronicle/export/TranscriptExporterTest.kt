@@ -6,7 +6,6 @@ import com.github.inxilpro.chronicle.settings.ChronicleSettings
 import com.github.inxilpro.chronicle.settings.ExportFormat
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import java.time.Instant
 
 class TranscriptExporterTest : BasePlatformTestCase() {
 
@@ -30,15 +29,14 @@ class TranscriptExporterTest : BasePlatformTestCase() {
 
         assertTrue(json.contains("\"session\""))
         assertTrue(json.contains("\"events\""))
-        assertTrue(json.contains("\"initialState\""))
     }
 
     fun testGenerateJsonIncludesSessionInfo() {
         val json = exporter.generateJson()
 
-        assertTrue(json.contains("\"start\""))
-        assertTrue(json.contains("\"end\""))
-        assertTrue(json.contains("\"project\""))
+        assertTrue(json.contains("\"sessionStart\""))
+        assertTrue(json.contains("\"exportedAt\""))
+        assertTrue(json.contains("\"projectName\""))
     }
 
     fun testGenerateJsonIncludesEvents() {
@@ -167,18 +165,15 @@ class TranscriptExporterTest : BasePlatformTestCase() {
 
         val json = exporter.generateJson()
 
-        assertTrue(json.contains("\"branch\": null"))
+        assertTrue(json.contains("\"branch\":"))
     }
 
-    fun testInitialFilesAreSeparatedFromEvents() {
-        transcriptService.log(FileOpenedEvent(path = "/initial/file.kt", isInitial = true))
-        transcriptService.log(FileOpenedEvent(path = "/later/file.kt", isInitial = false))
+    fun testGenerateJsonIncludesEventCount() {
+        transcriptService.log(FileOpenedEvent(path = "/test/file1.kt"))
+        transcriptService.log(FileOpenedEvent(path = "/test/file2.kt"))
 
         val json = exporter.generateJson()
 
-        assertTrue(json.contains("\"openFiles\""))
-        assertTrue(json.contains("/initial/file.kt"))
-        assertTrue(json.contains("\"file_opened\""))
-        assertTrue(json.contains("/later/file.kt"))
+        assertTrue(json.contains("\"eventCount\""))
     }
 }

@@ -241,6 +241,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         val totalEvents = service.getEvents().size
         val truncatedNote = if (totalEvents > MAX_DISPLAYED_EVENTS) " (showing last $MAX_DISPLAYED_EVENTS)" else ""
         statusLabel.text = "$totalEvents events$truncatedNote"
+        exportButton.isVisible = totalEvents > 0
     }
 
     override fun dispose() {
