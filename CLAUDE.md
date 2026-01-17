@@ -1,6 +1,6 @@
 # Chronicle - Claude Code Guidelines
 
-Chronicle is an IntelliJ IDEA plugin that captures developer activity into a timestamped transcript. It tracks file operations, code edits, selections, scrolling, git branches, search queries, shell commands, and audio transcriptions.
+Chronicle is an IntelliJ IDEA plugin that captures developer activity into a timestamped transcript. It tracks file operations, code edits, selections, scrolling, git branches, search queries, shell commands, and audio transcriptions—then exports them as JSON for LLM consumption.
 
 ## Build & Run
 
@@ -12,17 +12,29 @@ Chronicle is an IntelliJ IDEA plugin that captures developer activity into a tim
 
 ## Architecture
 
-**Event System**: All tracked activities are modeled as data classes implementing the `TranscriptEvent` sealed interface in `events/TranscriptEvent.kt`. New event types should follow this pattern.
+```
+events/       TranscriptEvent sealed interface and 17 event data classes
+listeners/    IDE event listeners (file, document, selection, scroll, git, search)
+services/     Core services (ActivityTranscript, AudioTranscription, TranscriptExport)
+shell/        Shell history parsing and tracking (zsh, bash)
+export/       JSON serialization (Gson type adapters, export data classes)
+toolWindow/   Chronicle panel UI
+```
 
-**Services**: Core logic lives in project services (`ActivityTranscriptService`, `AudioTranscriptionService`). Access via `ServiceClass.getInstance(project)`.
+**Event System**: All tracked activities implement `TranscriptEvent` in `events/TranscriptEvent.kt`. Each event has a `type` string, `timestamp`, and `summary()` method.
 
-**Listeners**: IDE events are captured through listeners in `listeners/`. Each listener:
+**Services**: Project-level services accessed via `ServiceClass.getInstance(project)`:
+- `ActivityTranscriptService` — Central event aggregation, session management, listener coordination
+- `AudioTranscriptionService` — Audio recording pipeline with WhisperJNI transcription
+- `TranscriptExportService` — JSON export with session metadata
+
+**Listeners**: Each listener in `listeners/`:
 - Implements the appropriate IntelliJ listener interface
-- Registers itself using a companion `register()` method
+- Has a companion `register(project, parentDisposable)` method
 - Uses `Disposer.register()` for cleanup
-- Debounces high-frequency events (document changes, selections, scrolling)
+- Debounces high-frequency events (300ms selections, 500ms document changes/scrolling)
 
-**Optional Dependencies**: Git and Search Everywhere integration use reflection to avoid compile-time dependencies on optional plugins, allowing graceful degradation.
+**Optional Dependencies**: Git and Search Everywhere use reflection to avoid compile-time dependencies, allowing graceful degradation when plugins are unavailable.
 
 ## Comments
 
