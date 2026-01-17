@@ -2,7 +2,13 @@ package com.github.inxilpro.chronicle.toolWindow
 
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.github.inxilpro.chronicle.services.AudioTranscriptionService
+import com.github.inxilpro.chronicle.services.TranscriptExportService
+import com.intellij.notification.Notification
+import com.intellij.notification.NotificationType
+import com.intellij.notification.Notifications
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.fileChooser.FileChooserFactory
+import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
@@ -19,6 +25,8 @@ import java.awt.BorderLayout
 import java.awt.Container
 import java.awt.Dimension
 import java.awt.FlowLayout
+import java.nio.file.Path
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.swing.*
@@ -49,6 +57,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val eventList = JBList(listModel)
     private val startStopButton = JButton("Stop")
     private val resetButton = JButton("Reset")
+    private val exportButton = JButton("Export JSON")
     private val statusLabel = JBLabel()
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
     private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
@@ -77,6 +86,8 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(startStopButton)
             add(Box.createHorizontalStrut(8))
             add(resetButton)
+            add(Box.createHorizontalStrut(8))
+            add(exportButton)
             add(Box.createHorizontalGlue())
             add(statusLabel)
         }
@@ -121,6 +132,10 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
         resetButton.addActionListener {
             service.resetSession()
+        }
+
+        exportButton.addActionListener {
+            exportTranscript()
         }
 
         audioToggleButton.addActionListener {
@@ -233,6 +248,50 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         val totalEvents = service.getEvents().size
         val truncatedNote = if (totalEvents > MAX_DISPLAYED_EVENTS) " (showing last $MAX_DISPLAYED_EVENTS)" else ""
         statusLabel.text = "$totalEvents events$truncatedNote"
+        exportButton.isVisible = totalEvents > 0
+    }
+
+    private fun exportTranscript() {
+        val dialog = FileChooserFactory.getInstance().createSaveFileDialog(
+            FileSaverDescriptor(
+                "Export Chronicle Transcript",
+                "Save transcript as JSON file",
+                "json"
+            ),
+            project
+        )
+
+        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        val defaultName = "chronicle-${project.name}-${timestamp}.json"
+        val basePath = project.basePath?.let { Path.of(it) }
+
+        val fileWrapper = dialog.save(basePath, defaultName)
+        if (fileWrapper != null) {
+            try {
+                val exportService = TranscriptExportService.getInstance(project)
+                exportService.exportToJson(fileWrapper.file)
+
+                Notifications.Bus.notify(
+                    Notification(
+                        "Chronicle",
+                        "Export Successful",
+                        "Transcript exported to ${fileWrapper.file.path}",
+                        NotificationType.INFORMATION
+                    ),
+                    project
+                )
+            } catch (e: Exception) {
+                Notifications.Bus.notify(
+                    Notification(
+                        "Chronicle",
+                        "Export Failed",
+                        "Error exporting transcript: ${e.message}",
+                        NotificationType.ERROR
+                    ),
+                    project
+                )
+            }
+        }
     }
 
     override fun dispose() {
