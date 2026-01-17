@@ -1,6 +1,6 @@
 # Test Modernization Recommendations
 
-This document compares Chronicle's current test setup against modern Kotlin testing best practices and provides recommendations for improvement.
+This document compares Chronicle's current test setup against modern Kotlin testing best practices and official JetBrains IntelliJ Platform testing guidelines.
 
 ## Current Setup Summary
 
@@ -9,146 +9,58 @@ This document compares Chronicle's current test setup against modern Kotlin test
 | Test Framework | JUnit 4.13.2 |
 | Assertions | JUnit assertions only |
 | Mocking | Manual object expressions |
-| Platform Testing | IntelliJ `BasePlatformTestCase` |
+| Platform Testing | IntelliJ `BasePlatformTestCase` ✓ |
 | Test Count | 13 test files, ~1,700 lines |
 | Async Handling | `Thread.sleep()` |
+| Test Data | Inline in tests |
+
+---
+
+## IntelliJ Platform Testing Philosophy
+
+Before diving into recommendations, it's important to understand JetBrains' official testing philosophy for IntelliJ plugins, as it differs from typical application testing.
+
+### Model-Level Functional Tests Over Unit Tests
+
+JetBrains explicitly recommends **model-level functional tests** rather than isolated unit tests:
+
+> "The IntelliJ Platform emphasizes model-level functional tests... Features are tested holistically rather than in isolation."
+
+This means:
+- Tests operate in a **headless environment using production implementations**
+- UI testing **bypasses Swing components**, focusing on underlying models
+- Input/output comparison validates results using source files or markup
+
+**Benefit:** "Tests are very stable and require very little maintenance once written, no matter how much the underlying implementation is refactored."
+
+### Avoid Mocking
+
+JetBrains **discourages mocking** due to the platform's complexity:
+
+> "The platform discourages mocking due to complexity. Instead, work with real components."
+
+For cases where you need to replace components:
+- Use `ServiceContainerUtil` to replace services in tests
+- Use `ExtensionTestUtil` to replace extension points
+- Use `testServiceImplementation` in service declarations
+
+**Current Status:** Chronicle correctly follows this guidance by using real service instances rather than mocks.
+
+### Light vs Heavy Tests
+
+The project correctly uses **Light Tests** (`BasePlatformTestCase`), which reuse projects across test runs. This is the recommended approach:
+
+> "Plugin developers should write light tests whenever possible."
+
+**Heavy Tests** (`HeavyPlatformTestCase`) create a new project per test and should only be used for multi-module configurations.
 
 ---
 
 ## Recommendations
 
-### 1. Migrate to JUnit 5 (Jupiter)
+### 1. Use IntelliJ Platform Waiting Utilities (High Priority)
 
-**Current:** JUnit 4 with `@Test` annotations and `@Rule` for temporary folders.
-
-**Modern Practice:** JUnit 5 (Jupiter) is the standard for new Kotlin projects, offering:
-- More expressive lifecycle annotations (`@BeforeEach`, `@AfterEach`)
-- Nested test classes with `@Nested` for better organization
-- `@TempDir` parameter injection (replaces `TemporaryFolder` rule)
-- `@ParameterizedTest` with various sources
-- `@DisplayName` for readable test names
-- Better extension model (`@ExtendWith`)
-
-**Example Migration:**
-```kotlin
-// Current (JUnit 4)
-class ShellHistoryParserTest {
-    @get:Rule
-    val tempFolder = TemporaryFolder()
-
-    @Test
-    fun testParseZshExtendedHistoryFormat() { ... }
-}
-
-// Modern (JUnit 5)
-class ShellHistoryParserTest {
-    @Test
-    @DisplayName("parses zsh extended history format correctly")
-    fun parseZshExtendedHistoryFormat(@TempDir tempDir: Path) { ... }
-
-    @Nested
-    inner class ZshHistoryParsing {
-        @ParameterizedTest
-        @CsvSource("': 1234567890:0;echo hello', 'echo hello'")
-        fun `extracts command from extended format`(line: String, expected: String) { ... }
-    }
-}
-```
-
-**Consideration:** IntelliJ Platform's test framework (`BasePlatformTestCase`) is JUnit 3-style. Platform tests would need the JUnit 4/5 compatibility layer or could remain as-is while unit tests migrate.
-
-**Priority:** Medium - Improves developer experience but existing tests work fine.
-
----
-
-### 2. Adopt a Kotlin-Idiomatic Assertion Library
-
-**Current:** Basic JUnit assertions like `assertEquals()`, `assertTrue()`.
-
-**Modern Practice:** Use expressive assertion libraries designed for Kotlin:
-
-#### Option A: Kotest Assertions (Recommended)
-```kotlin
-// Current
-assertEquals("Opened Main.kt", event.summary())
-assertTrue(events.isNotEmpty())
-assertNull(result)
-
-// Kotest assertions
-event.summary() shouldBe "Opened Main.kt"
-events.shouldNotBeEmpty()
-result.shouldBeNull()
-
-// More expressive matchers
-events shouldHaveSize 3
-event.path shouldContain "Main.kt"
-events.shouldContainExactlyInAnyOrder(event1, event2)
-```
-
-#### Option B: AssertJ (Java-based, also excellent)
-```kotlin
-assertThat(event.summary()).isEqualTo("Opened Main.kt")
-assertThat(events).isNotEmpty()
-assertThat(events).hasSize(3).extracting("path").contains("Main.kt")
-```
-
-#### Option C: Strikt (Kotlin-first, composable)
-```kotlin
-expectThat(event.summary()).isEqualTo("Opened Main.kt")
-expectThat(events).isNotEmpty().hasSize(3)
-```
-
-**Recommendation:** Kotest assertions are the most Kotlin-idiomatic and can be used independently of the Kotest test framework.
-
-**Priority:** Medium - Significantly improves test readability and error messages.
-
----
-
-### 3. Add a Mocking Framework
-
-**Current:** Manual object expressions for mocking:
-```kotlin
-val mockParser = object : ShellHistoryParser() {
-    override fun parseRecentCommands(since: Instant, limit: Int): List<ShellCommand> {
-        return listOf(ShellCommand("echo test", Instant.now(), "bash"))
-    }
-}
-```
-
-**Modern Practice:** Use MockK, the standard mocking library for Kotlin:
-
-```kotlin
-// MockK example
-val mockParser = mockk<ShellHistoryParser> {
-    every { parseRecentCommands(any(), any()) } returns listOf(
-        ShellCommand("echo test", Instant.now(), "bash")
-    )
-}
-
-// Verification
-verify { mockParser.parseRecentCommands(any(), limit = 100) }
-
-// Relaxed mocks for simple cases
-val relaxedMock = mockk<SomeService>(relaxed = true)
-
-// Coroutine support
-coEvery { asyncService.fetchData() } returns Result.success(data)
-```
-
-**Benefits:**
-- Less boilerplate than manual object expressions
-- Verification of interactions
-- Argument capturing
-- Coroutine support with `coEvery`/`coVerify`
-- Spy functionality
-
-**Priority:** Low - Current approach works; only beneficial if test complexity grows.
-
----
-
-### 4. Replace Thread.sleep() with Deterministic Waiting
-
-**Current:** Tests use `Thread.sleep()` to wait for debounced events:
+**Current:** Tests use raw `Thread.sleep()` to wait for debounced events:
 ```kotlin
 Thread.sleep(600) // Wait for debounce
 ```
@@ -158,102 +70,241 @@ Thread.sleep(600) // Wait for debounce
 - Slow test execution
 - Race conditions
 
-**Modern Approaches:**
+**IntelliJ Platform Solution:** Use built-in utilities from the testing FAQ:
 
-#### A. Awaitility (Recommended for existing architecture)
+#### A. `WaitFor` - Condition-based waiting with timeout
 ```kotlin
-await().atMost(2, SECONDS).untilAsserted {
-    val events = service.getEvents().filterIsInstance<SelectionChangedEvent>()
-    assertThat(events).isNotEmpty()
+import com.intellij.util.WaitFor
+
+// Wait up to 2 seconds for condition
+WaitFor(2000) {
+    service.getEvents().filterIsInstance<SelectionChangedEvent>().isNotEmpty()
 }
 ```
 
-#### B. Inject a Test Scheduler/Clock
+#### B. `TimeoutUtil.sleep()` - When delay is truly needed
 ```kotlin
-// Production code uses injected time source
-class DebouncedListener(private val clock: Clock = Clock.systemUTC())
+import com.intellij.util.TimeoutUtil
 
-// Test provides controllable clock
-val testClock = MutableClock()
-val listener = DebouncedListener(testClock)
-testClock.advance(600.milliseconds)
+TimeoutUtil.sleep(600) // Platform-aware sleep
 ```
 
-#### C. Expose Flush Methods (Already partially done)
+#### C. `PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()`
+For tests that need to process pending UI events:
+```kotlin
+PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+```
+
+#### D. `IndexingTestUtil.waitUntilIndexesAreReady()`
+For tests that depend on indexing completion:
+```kotlin
+import com.intellij.testFramework.IndexingTestUtil
+
+IndexingTestUtil.waitUntilIndexesAreReady(project)
+```
+
+#### E. `StartupActivityTestUtil.waitForProjectActivitiesToComplete()`
+Since `ProjectActivity` is no longer awaited in tests:
+```kotlin
+StartupActivityTestUtil.waitForProjectActivitiesToComplete(project)
+```
+
+#### F. Expose Flush Methods (Already partially done)
 The codebase already has `flushPendingEvents()` methods - ensure all debounced components expose similar methods for testing.
 
-**Priority:** High - Reduces test flakiness and execution time.
+**Priority:** High - Reduces test flakiness and aligns with platform best practices.
 
 ---
 
-### 5. Consider Kotest as Test Framework
+### 2. Proper Test Teardown (High Priority)
 
-**Current:** JUnit 4 with standard test structure.
+**Current:** Unknown if `super.tearDown()` is always called in `finally` blocks.
 
-**Modern Alternative:** Kotest offers Kotlin-native testing with multiple styles:
+**JetBrains Requirement:** From the testing FAQ:
+
+> "Always invoke `super.tearDown()` within a `finally {}` block to prevent leaks from previous test failures."
 
 ```kotlin
-class TranscriptEventSpec : FunSpec({
-    context("FileOpenedEvent") {
-        test("summary extracts filename from path") {
-            val event = FileOpenedEvent(path = "/project/src/Main.kt")
-            event.summary() shouldBe "Opened Main.kt"
-        }
-
-        test("handles paths without directory") {
-            val event = FileOpenedEvent(path = "Main.kt")
-            event.summary() shouldBe "Opened Main.kt"
+class MyPluginTest : BasePlatformTestCase() {
+    override fun tearDown() {
+        try {
+            // Your cleanup code here
+        } finally {
+            super.tearDown()
         }
     }
+}
+```
 
-    context("DocumentChangedEvent") {
+**Why:** If a test fails before tearDown completes, subsequent tests may inherit leaked state, causing cascading failures.
+
+**Priority:** High - Prevents flaky test suites.
+
+---
+
+### 3. Add Test Data Directory (Medium Priority)
+
+**Current:** Test data is created inline within test methods.
+
+**JetBrains Recommendation:** Use a dedicated `testData` directory:
+
+```
+src/
+├── main/kotlin/...
+└── test/
+    ├── kotlin/...
+    └── testData/
+        ├── shellHistory/
+        │   ├── zsh_extended.txt
+        │   └── bash_simple.txt
+        └── events/
+            └── sample_transcript.json
+```
+
+**Implementation:**
+```kotlin
+class ShellHistoryParserTest : BasePlatformTestCase() {
+    override fun getTestDataPath(): String =
+        "src/test/testData/shellHistory"
+
+    fun testParseZshExtendedFormat() {
+        // Loads from testData directory
+        val content = loadFile("zsh_extended.txt")
         // ...
     }
-})
+}
 ```
 
 **Benefits:**
-- DSL-based test structure
-- Built-in property-based testing
-- Data-driven testing
-- Coroutine-first design
-- Rich assertion library included
+- Separates test logic from test data
+- Easier to maintain large test fixtures
+- Enables file-based golden testing
+- Follows IntelliJ Platform conventions
 
-**Consideration:** Significant migration effort; JUnit 5 may be a more pragmatic choice.
-
-**Priority:** Low - Only if team prefers Kotest's style.
+**Priority:** Medium - Improves maintainability as tests grow.
 
 ---
 
-### 6. Add Property-Based Testing
+### 4. Use `UsefulTestCase` Assertion Methods (Medium Priority)
 
-**Current:** Example-based tests only.
+**Current:** Basic JUnit assertions.
 
-**Modern Practice:** Add property-based tests for data classes and parsers:
+**IntelliJ Platform Provides:** `UsefulTestCase` (parent of `BasePlatformTestCase`) includes useful assertion methods:
 
 ```kotlin
-// Using Kotest property testing
-class TranscriptEventPropertyTest : FunSpec({
-    test("all events have non-blank summaries") {
-        checkAll(Arb.bind<FileOpenedEvent>()) { event ->
-            event.summary().shouldNotBeBlank()
-        }
-    }
+// For unordered comparisons (avoids flakiness from collection ordering)
+assertUnorderedCollection(actual, expected1, expected2)
 
-    test("shell history parser round-trips correctly") {
-        checkAll(Arb.string(), Arb.instant()) { command, timestamp ->
-            val parsed = parser.parse(formatter.format(command, timestamp))
-            parsed.command shouldBe command
-        }
-    }
-})
+// For comparing sets
+assertSameElements(actualCollection, expectedCollection)
+
+// Get test method name for test data file naming
+val testName = getTestName(false) // "testParseZshFormat" -> "ParseZshFormat"
 ```
 
-**Priority:** Low - Nice to have for parser and serialization logic.
+**Priority:** Medium - Reduces flakiness from ordering assumptions.
 
 ---
 
-### 7. Create Shared Test Utilities
+### 5. Service/Extension Replacement in Tests (Medium Priority)
+
+**Current:** Manual object expressions for mocking.
+
+**IntelliJ Platform Utilities:** When you need to replace services or extensions:
+
+#### Replacing Services
+```kotlin
+import com.intellij.testFramework.ServiceContainerUtil
+
+// Replace a service for the duration of a test
+ServiceContainerUtil.replaceService(
+    project,
+    MyService::class.java,
+    mockService,
+    testRootDisposable
+)
+```
+
+#### Replacing Extension Points
+```kotlin
+import com.intellij.testFramework.ExtensionTestUtil
+
+ExtensionTestUtil.maskExtensions(
+    MY_EXTENSION_POINT,
+    listOf(testExtension),
+    testRootDisposable
+)
+```
+
+**Note:** This aligns with JetBrains' guidance to avoid general mocking while still allowing targeted test doubles.
+
+**Priority:** Medium - Use when specific isolation is needed.
+
+---
+
+### 6. Migrate to JUnit 5 (Medium Priority)
+
+**Current:** JUnit 4 with `@Test` annotations and `@Rule` for temporary folders.
+
+**IntelliJ Platform Support:** Since 2021.1, JetBrains provides JUnit 5 base classes:
+- `LightJavaCodeInsightFixtureTestCase5` (for Java PSI tests)
+
+**For non-Java tests:** The standard `BasePlatformTestCase` is JUnit 3-style, but you can:
+1. Keep platform tests as-is (they work fine)
+2. Migrate pure unit tests to JUnit 5
+3. Use the fixture approach with JUnit 5
+
+**JUnit 5 Benefits:**
+- `@TempDir` parameter injection (replaces `TemporaryFolder` rule)
+- `@ParameterizedTest` with various sources
+- `@Nested` for test organization
+- `@DisplayName` for readable names
+
+**Example for pure unit tests:**
+```kotlin
+// Unit test (no platform dependency) - can use JUnit 5
+class TranscriptEventTest {
+    @Test
+    @DisplayName("FileOpenedEvent summary extracts filename")
+    fun fileOpenedEventSummary(@TempDir tempDir: Path) {
+        val event = FileOpenedEvent(path = "/project/src/Main.kt")
+        assertEquals("Opened Main.kt", event.summary())
+    }
+}
+```
+
+**Integration Tests Require JUnit 5:** The IntelliJ Starter framework (for full IDE integration tests) **requires JUnit 5 exclusively**.
+
+**Priority:** Medium - Improves developer experience; pure unit tests benefit most.
+
+---
+
+### 7. Adopt Kotlin-Idiomatic Assertions (Low Priority)
+
+**Current:** Basic JUnit assertions like `assertEquals()`, `assertTrue()`.
+
+**Modern Practice:** Use expressive assertion libraries designed for Kotlin:
+
+#### Option A: Kotest Assertions (Recommended)
+```kotlin
+event.summary() shouldBe "Opened Main.kt"
+events.shouldNotBeEmpty()
+events shouldHaveSize 3
+```
+
+#### Option B: AssertJ
+```kotlin
+assertThat(event.summary()).isEqualTo("Opened Main.kt")
+assertThat(events).isNotEmpty().hasSize(3)
+```
+
+**Note:** This is lower priority than using IntelliJ's built-in `UsefulTestCase` assertions, which are already available.
+
+**Priority:** Low - Nice to have but not critical.
+
+---
+
+### 8. Create Shared Test Utilities (Low Priority)
 
 **Current:** Each test is self-contained with repeated setup patterns.
 
@@ -267,9 +318,11 @@ object TestEvents {
         DocumentChangedEvent(path = path, changeCount = changes)
 }
 
-// Service test helper
-fun Project.withTranscriptService(block: ActivityTranscriptService.() -> Unit) {
-    val service = service<ActivityTranscriptService>()
+// Service test helper using platform patterns
+fun BasePlatformTestCase.withTranscriptService(
+    block: ActivityTranscriptService.() -> Unit
+) {
+    val service = project.service<ActivityTranscriptService>()
     service.startLogging()
     try {
         service.block()
@@ -278,74 +331,56 @@ fun Project.withTranscriptService(block: ActivityTranscriptService.() -> Unit) {
     }
 }
 
-// Awaiting helper
-suspend fun ActivityTranscriptService.awaitEvent(
-    timeout: Duration = 2.seconds,
-    predicate: (TranscriptEvent) -> Boolean
-): TranscriptEvent {
-    return withTimeout(timeout) {
-        while (true) {
-            getEvents().find(predicate)?.let { return@withTimeout it }
-            delay(50)
-        }
-    }
+// Waiting helper using platform utilities
+fun BasePlatformTestCase.awaitEvents(
+    timeoutMs: Int = 2000,
+    predicate: () -> Boolean
+) {
+    WaitFor(timeoutMs) { predicate() }
 }
 ```
 
-**Priority:** Medium - Reduces duplication as test suite grows.
+**Priority:** Low - Reduces duplication as test suite grows.
 
 ---
 
-### 8. Improve Test Organization
+### 9. Consider Mocking Framework (Low Priority)
 
-**Current:** Flat test methods within each class.
+**Current:** Manual object expressions for mocking.
 
-**Modern Practice:** Use nested classes for grouping related tests:
+**JetBrains Guidance:** Avoid mocking when possible. Use real components.
 
+**When mocking is needed:** MockK is the Kotlin standard:
 ```kotlin
-class ShellHistoryParserTest {
-    @Nested
-    inner class ZshParsing {
-        @Test fun `parses extended format`() { ... }
-        @Test fun `handles missing timestamp`() { ... }
-    }
-
-    @Nested
-    inner class BashParsing {
-        @Test fun `parses simple format`() { ... }
-        @Test fun `handles multiline commands`() { ... }
-    }
-
-    @Nested
-    inner class EdgeCases {
-        @Test fun `empty file returns empty list`() { ... }
-        @Test fun `malformed lines are skipped`() { ... }
-    }
+val mockParser = mockk<ShellHistoryParser> {
+    every { parseRecentCommands(any(), any()) } returns listOf(...)
 }
 ```
 
-**Priority:** Low - Primarily organizational improvement.
+**However:** Given JetBrains' guidance, prefer:
+1. Using real implementations
+2. `ServiceContainerUtil` for service replacement
+3. `ExtensionTestUtil` for extension point replacement
+
+**Priority:** Low - Only if test complexity truly requires it.
 
 ---
 
-## Recommended Dependency Additions
+## Dependency Additions
 
 ```kotlin
 // build.gradle.kts additions for test modernization
 
 dependencies {
-    // JUnit 5
+    // JUnit 5 (for pure unit tests and future integration tests)
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
-    // Kotest assertions (can use standalone)
+    // Optional: Kotest assertions (standalone, works with any framework)
     testImplementation("io.kotest:kotest-assertions-core:5.8.1")
 
-    // MockK
+    // Optional: MockK (use sparingly per JetBrains guidance)
     testImplementation("io.mockk:mockk:1.13.10")
-
-    // Awaitility for async testing
-    testImplementation("org.awaitility:awaitility-kotlin:4.2.1")
 }
 
 tasks.test {
@@ -359,35 +394,53 @@ tasks.test {
 
 | Change | Priority | Effort | Impact |
 |--------|----------|--------|--------|
-| Replace `Thread.sleep()` with Awaitility | High | Low | Reduces flakiness |
-| Add Kotest assertions | Medium | Low | Better readability |
-| Create shared test utilities | Medium | Medium | Reduces duplication |
-| Migrate to JUnit 5 | Medium | Medium | Modern features |
-| Add MockK | Low | Low | Cleaner mocks |
-| Nested test organization | Low | Low | Better structure |
-| Property-based testing | Low | Medium | Edge case coverage |
-| Full Kotest migration | Low | High | Style preference |
+| Use `WaitFor` instead of `Thread.sleep()` | High | Low | Reduces flakiness |
+| Ensure `super.tearDown()` in `finally` blocks | High | Low | Prevents test leaks |
+| Use `assertUnorderedCollection()` for collections | Medium | Low | Reduces ordering flakiness |
+| Add `testData` directory structure | Medium | Medium | Better organization |
+| Learn `ServiceContainerUtil`/`ExtensionTestUtil` | Medium | Low | Platform-native isolation |
+| Migrate pure unit tests to JUnit 5 | Medium | Medium | Modern features |
+| Add Kotest assertions | Low | Low | Better readability |
+| Create shared test utilities | Low | Medium | Reduces duplication |
+| Add MockK | Low | Low | Use sparingly |
 
 ---
 
 ## What's Working Well
 
-The current test setup has several strengths worth preserving:
+The current test setup aligns well with JetBrains guidelines:
 
-1. **Good coverage** - All major components have tests
-2. **Correct IntelliJ Platform testing** - Proper use of `BasePlatformTestCase` and fixtures
-3. **Clean test isolation** - Each test is independent
-4. **Appropriate test granularity** - Mix of unit and integration tests
+1. **Uses Light Tests** - Correctly extends `BasePlatformTestCase` (not `HeavyPlatformTestCase`)
+2. **Avoids excessive mocking** - Uses real service instances per JetBrains recommendation
+3. **Model-level testing** - Tests real IntelliJ components, not mocked abstractions
+4. **Good coverage** - All major components have tests
 5. **Flush methods for debouncing** - Good pattern already partially adopted
+6. **Clean test isolation** - Each test is independent
+
+---
+
+## IntelliJ Platform Testing Resources
+
+- [Testing Plugins Overview](https://plugins.jetbrains.com/docs/intellij/testing-plugins.html)
+- [Light and Heavy Tests](https://plugins.jetbrains.com/docs/intellij/light-and-heavy-tests.html)
+- [Tests and Fixtures](https://plugins.jetbrains.com/docs/intellij/tests-and-fixtures.html)
+- [Testing FAQ](https://plugins.jetbrains.com/docs/intellij/testing-faq.html) - Essential reading for common issues
+- [Test Project and TestData Directories](https://plugins.jetbrains.com/docs/intellij/test-project-and-testdata-directories.html)
+- [Integration Tests Introduction](https://plugins.jetbrains.com/docs/intellij/integration-tests-intro.html)
 
 ---
 
 ## Conclusion
 
-The most impactful improvements with least disruption would be:
+The most impactful improvements aligned with JetBrains best practices:
 
-1. **Add Awaitility** to replace `Thread.sleep()` calls
-2. **Add Kotest assertions** for more expressive tests
-3. **Create a small test utilities module** for common patterns
+1. **Replace `Thread.sleep()` with `WaitFor`** - Use platform-native waiting utilities
+2. **Audit tearDown methods** - Ensure `super.tearDown()` is always in `finally` blocks
+3. **Use `assertUnorderedCollection()`** - Avoid flakiness from collection ordering
 
-JUnit 5 migration and MockK are valuable but lower priority given the current tests work correctly. A full Kotest migration would be a larger undertaking best deferred unless the team specifically prefers that style.
+Lower priority but valuable:
+- Add a `testData` directory for file-based test fixtures
+- Migrate pure unit tests to JUnit 5 (platform tests can stay as-is)
+- Consider Kotest assertions for improved readability
+
+The current approach of avoiding mocks and using real components is **correct** per JetBrains guidance and should be preserved.
