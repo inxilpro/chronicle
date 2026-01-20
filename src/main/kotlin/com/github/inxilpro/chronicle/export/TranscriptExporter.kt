@@ -46,15 +46,7 @@ class TranscriptExporter(private val project: Project) {
         }
     }
 
-    fun generateJson(): String {
-        val tempFile = kotlin.io.path.createTempFile("chronicle-export", ".json").toFile()
-        try {
-            exportService.exportToJson(tempFile)
-            return tempFile.readText()
-        } finally {
-            tempFile.delete()
-        }
-    }
+    fun generateJson(): String = exportService.toJson()
 
     companion object {
         fun getInstance(project: Project): TranscriptExporter {
