@@ -17,6 +17,7 @@ class TranscriptExportService(private val project: Project) {
     private val gson = GsonBuilder()
         .registerTypeAdapter(Instant::class.java, InstantTypeAdapter())
         .registerTypeAdapter(TranscriptEvent::class.java, TranscriptEventTypeAdapter())
+        .serializeNulls()
         .setPrettyPrinting()
         .create()
 
