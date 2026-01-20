@@ -17,10 +17,15 @@ class TranscriptExportService(private val project: Project) {
     private val gson = GsonBuilder()
         .registerTypeAdapter(Instant::class.java, InstantTypeAdapter())
         .registerTypeAdapter(TranscriptEvent::class.java, TranscriptEventTypeAdapter())
+        .serializeNulls()
         .setPrettyPrinting()
         .create()
 
     fun exportToJson(file: File) {
+        file.writeText(toJson())
+    }
+
+    fun toJson(): String {
         val transcriptService = ActivityTranscriptService.getInstance(project)
 
         val export = TranscriptExport(
@@ -28,12 +33,13 @@ class TranscriptExportService(private val project: Project) {
                 projectName = transcriptService.getProjectName(),
                 sessionStart = transcriptService.getSessionStart(),
                 exportedAt = Instant.now(),
-                eventCount = transcriptService.getEvents().size
+                eventCount = transcriptService.getEvents().size,
+                gitBranch = transcriptService.getSessionGitBranch()
             ),
             events = transcriptService.getEvents()
         )
 
-        file.writeText(gson.toJson(export))
+        return gson.toJson(export)
     }
 
     companion object {
