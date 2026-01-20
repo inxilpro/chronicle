@@ -22,6 +22,10 @@ class TranscriptExportService(private val project: Project) {
         .create()
 
     fun exportToJson(file: File) {
+        file.writeText(toJson())
+    }
+
+    fun toJson(): String {
         val transcriptService = ActivityTranscriptService.getInstance(project)
 
         val export = TranscriptExport(
@@ -35,7 +39,7 @@ class TranscriptExportService(private val project: Project) {
             events = transcriptService.getEvents()
         )
 
-        file.writeText(gson.toJson(export))
+        return gson.toJson(export)
     }
 
     companion object {
