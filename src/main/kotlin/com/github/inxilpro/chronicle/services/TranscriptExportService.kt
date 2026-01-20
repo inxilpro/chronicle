@@ -27,16 +27,17 @@ class TranscriptExportService(private val project: Project) {
 
     fun toJson(): String {
         val transcriptService = ActivityTranscriptService.getInstance(project)
+        val events = transcriptService.getEvents().sortedBy { it.timestamp }
 
         val export = TranscriptExport(
             session = SessionMetadata(
                 projectName = transcriptService.getProjectName(),
                 sessionStart = transcriptService.getSessionStart(),
                 exportedAt = Instant.now(),
-                eventCount = transcriptService.getEvents().size,
+                eventCount = events.size,
                 gitBranch = transcriptService.getSessionGitBranch()
             ),
-            events = transcriptService.getEvents()
+            events = events
         )
 
         return gson.toJson(export)
