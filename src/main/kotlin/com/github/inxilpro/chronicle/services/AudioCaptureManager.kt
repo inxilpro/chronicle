@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.sound.sampled.*
 import kotlin.concurrent.thread
 import kotlin.math.sqrt
@@ -17,10 +18,15 @@ class AudioCaptureManager(
     private val silenceDurationMs: Long = 1500
 ) : Disposable {
 
+    fun interface AudioLevelListener {
+        fun onAudioLevel(rms: Float, isSilence: Boolean, silenceDurationMs: Long)
+    }
+
     private val audioFormat = AudioFormat(16000f, 16, 1, true, false)
     private var targetDataLine: TargetDataLine? = null
     private var recordingThread: Thread? = null
     private val audioChunks = ConcurrentLinkedQueue<AudioChunk>()
+    private val levelListeners = CopyOnWriteArrayList<AudioLevelListener>()
 
     @Volatile
     private var isRecording = false
@@ -94,7 +100,10 @@ class AudioCaptureManager(
                     silenceStartTime = null
                 }
 
-                val silenceDuration = silenceStartTime?.let { currentTime - it } ?: 0
+                val silenceDuration = silenceStartTime?.let { currentTime - it } ?: 0L
+
+                levelListeners.forEach { it.onAudioLevel(rms, isSilence, silenceDuration) }
+
                 val shouldChunkOnSilence = chunkDuration >= minChunkMs && silenceDuration >= silenceDurationMs
                 val shouldChunkOnMaxDuration = chunkDuration >= maxChunkMs
 
@@ -159,9 +168,20 @@ class AudioCaptureManager(
 
     fun isRecording(): Boolean = isRecording
 
+    fun getSilenceThreshold(): Float = silenceThresholdRms
+
+    fun addLevelListener(listener: AudioLevelListener) {
+        levelListeners.add(listener)
+    }
+
+    fun removeLevelListener(listener: AudioLevelListener) {
+        levelListeners.remove(listener)
+    }
+
     override fun dispose() {
         stopRecording()
         audioChunks.clear()
+        levelListeners.clear()
     }
 
     data class AudioChunk(

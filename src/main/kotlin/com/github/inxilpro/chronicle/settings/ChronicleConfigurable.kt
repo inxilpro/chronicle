@@ -2,6 +2,7 @@ package com.github.inxilpro.chronicle.settings
 
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
+import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
@@ -21,6 +22,7 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
     private var markdownRadioButton: JBRadioButton? = null
     private var promptTextArea: JBTextArea? = null
     private var promptPanel: JPanel? = null
+    private var waveformCheckbox: JBCheckBox? = null
 
     override fun getDisplayName(): String = "Chronicle"
 
@@ -73,9 +75,13 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
             add(resetButton, BorderLayout.SOUTH)
         }
 
+        waveformCheckbox = JBCheckBox("Show audio waveform visualization (for debugging)")
+
         mainPanel = FormBuilder.createFormBuilder()
             .addLabeledComponent("Export format:", formatPanel)
             .addComponent(promptWithReset)
+            .addSeparator()
+            .addComponent(waveformCheckbox!!)
             .addComponentFillVertically(JPanel(), 0)
             .panel
 
@@ -95,13 +101,15 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
         val settings = ChronicleSettings.getInstance(project)
         val selectedFormat = if (jsonRadioButton?.isSelected == true) ExportFormat.JSON else ExportFormat.MARKDOWN
         return selectedFormat != settings.exportFormat ||
-                promptTextArea?.text != settings.markdownPromptTemplate
+                promptTextArea?.text != settings.markdownPromptTemplate ||
+                waveformCheckbox?.isSelected != settings.showWaveformVisualization
     }
 
     override fun apply() {
         val settings = ChronicleSettings.getInstance(project)
         settings.exportFormat = if (jsonRadioButton?.isSelected == true) ExportFormat.JSON else ExportFormat.MARKDOWN
         settings.markdownPromptTemplate = promptTextArea?.text ?: ChronicleSettings.DEFAULT_MARKDOWN_PROMPT
+        settings.showWaveformVisualization = waveformCheckbox?.isSelected ?: false
     }
 
     override fun reset() {
@@ -111,6 +119,7 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
             ExportFormat.MARKDOWN -> markdownRadioButton?.isSelected = true
         }
         promptTextArea?.text = settings.markdownPromptTemplate
+        waveformCheckbox?.isSelected = settings.showWaveformVisualization
         updatePromptVisibility()
     }
 
@@ -120,5 +129,6 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
         markdownRadioButton = null
         promptTextArea = null
         promptPanel = null
+        waveformCheckbox = null
     }
 }

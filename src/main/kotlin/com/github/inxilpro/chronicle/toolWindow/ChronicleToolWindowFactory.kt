@@ -2,7 +2,9 @@ package com.github.inxilpro.chronicle.toolWindow
 
 import com.github.inxilpro.chronicle.export.TranscriptExporter
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
+import com.github.inxilpro.chronicle.services.AudioCaptureManager
 import com.github.inxilpro.chronicle.services.AudioTranscriptionService
+import com.github.inxilpro.chronicle.settings.ChronicleSettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
@@ -46,6 +48,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
     private val service = ActivityTranscriptService.getInstance(project)
     private val audioService = AudioTranscriptionService.getInstance(project)
+    private val settings = ChronicleSettings.getInstance(project)
     private val listModel = CollectionListModel<String>()
     private val eventList = JBList(listModel)
     private val startStopButton = JButton("Stop")
@@ -61,9 +64,16 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val audioStatusLabel = JBLabel()
     private var audioEnabled = true
     private var isStarting = false
+    private val waveformPanel = AudioWaveformPanel(audioService.getSilenceThreshold())
 
     private val changeListener = ActivityTranscriptService.TranscriptChangeListener {
         scheduleRefresh()
+    }
+
+    private val audioLevelListener = AudioCaptureManager.AudioLevelListener { rms, isSilence, silenceDurationMs ->
+        ApplicationManager.getApplication().invokeLater {
+            waveformPanel.addSample(rms, isSilence, silenceDurationMs)
+        }
     }
 
     private val audioStateListener = AudioTranscriptionService.StateChangeListener { state ->
@@ -92,11 +102,15 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(audioStatusLabel)
         }
 
+        waveformPanel.isVisible = settings.showWaveformVisualization
+
         val controlsPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             add(buttonPanel)
             add(Box.createVerticalStrut(4))
             add(audioPanel)
+            add(Box.createVerticalStrut(4))
+            add(waveformPanel)
         }
 
         eventList.fixedCellHeight = JBUI.scale(24)
@@ -199,23 +213,30 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             AudioTranscriptionService.RecordingState.STOPPED -> {
                 audioStatusLabel.text = ""
                 audioToggleButton.isEnabled = !isStarting
+                audioService.removeLevelListener(audioLevelListener)
             }
             AudioTranscriptionService.RecordingState.INITIALIZING -> {
                 audioStatusLabel.text = "Loading model..."
                 audioToggleButton.isEnabled = false
+                waveformPanel.clear()
             }
             AudioTranscriptionService.RecordingState.RECORDING -> {
                 audioStatusLabel.text = ""
                 audioToggleButton.isEnabled = !isStarting
+                if (settings.showWaveformVisualization) {
+                    audioService.addLevelListener(audioLevelListener)
+                }
             }
             AudioTranscriptionService.RecordingState.PROCESSING -> {
                 audioStatusLabel.text = "Processing..."
                 audioToggleButton.isEnabled = false
+                audioService.removeLevelListener(audioLevelListener)
             }
             AudioTranscriptionService.RecordingState.ERROR -> {
                 val error = audioService.getLastError() ?: "Unknown error"
                 audioStatusLabel.text = "Error: $error"
                 audioToggleButton.isEnabled = !isStarting
+                audioService.removeLevelListener(audioLevelListener)
             }
         }
         updateAudioToggleButton()
@@ -272,6 +293,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     override fun dispose() {
         service.removeChangeListener(changeListener)
         audioService.removeStateListener(audioStateListener)
+        audioService.removeLevelListener(audioLevelListener)
     }
 
     private class EventListCellRenderer : DefaultListCellRenderer() {

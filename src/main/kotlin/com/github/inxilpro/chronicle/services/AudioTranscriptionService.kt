@@ -146,6 +146,16 @@ class AudioTranscriptionService(private val project: Project) : Disposable {
 
     fun listAvailableDevices(): List<AudioCaptureManager.AudioDevice> = audioManager.listAvailableDevices()
 
+    fun getSilenceThreshold(): Float = audioManager.getSilenceThreshold()
+
+    fun addLevelListener(listener: AudioCaptureManager.AudioLevelListener) {
+        audioManager.addLevelListener(listener)
+    }
+
+    fun removeLevelListener(listener: AudioCaptureManager.AudioLevelListener) {
+        audioManager.removeLevelListener(listener)
+    }
+
     fun getAvailableModels(): List<ModelDownloader.WhisperModel> = ModelDownloader.WhisperModel.entries
 
     fun getSelectedModel(): ModelDownloader.WhisperModel = selectedModel
