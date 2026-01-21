@@ -20,14 +20,32 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class BatchTranscriptionProcessor(
     private val project: Project,
-    private val audioManager: AudioCaptureManager,
-    private val processingIntervalMs: Long = 5 * 60 * 1000
+    private val audioManager: AudioCaptureManager
 ) : Disposable {
 
     companion object {
         // Whisper requires minimum 1 second of audio (16kHz sample rate)
         // Adding small buffer to account for rounding
         private const val MIN_SAMPLES = 16100
+
+        private val SILENCE_MARKERS = setOf(
+            "[BLANK_AUDIO]",
+            "[ Silence ]",
+            "[silence]",
+            "[SILENCE]",
+            "(silence)",
+            "[ silence ]",
+            "[inaudible]",
+            "(inaudible)"
+        )
+
+        private fun isSilenceMarker(text: String): Boolean {
+            return text in SILENCE_MARKERS || text.lowercase().let {
+                it.startsWith("[silence") || it.startsWith("(silence") ||
+                it.startsWith("[blank") || it.startsWith("[inaudible") ||
+                it.startsWith("(inaudible")
+            }
+        }
     }
 
     private val transcriptService: ActivityTranscriptService
@@ -78,13 +96,15 @@ class BatchTranscriptionProcessor(
             return
         }
 
+        // Use a short polling interval to process chunks promptly after they're created
+        val pollingIntervalMs = 2000L
         scheduledTask = executor.scheduleAtFixedRate(
             { processAllChunks() },
-            processingIntervalMs,
-            processingIntervalMs,
+            pollingIntervalMs,
+            pollingIntervalMs,
             TimeUnit.MILLISECONDS
         )
-        thisLogger().info("Started batch transcription processing (interval: ${processingIntervalMs / 1000}s)")
+        thisLogger().info("Started batch transcription processing (polling interval: ${pollingIntervalMs / 1000}s)")
     }
 
     fun stopProcessing() {
@@ -136,7 +156,7 @@ class BatchTranscriptionProcessor(
 
                 for (i in 0 until numSegments) {
                     val text = whisper.fullGetSegmentText(context, i)?.trim() ?: continue
-                    if (text.isEmpty() || text.isBlank() || text == "[BLANK_AUDIO]") continue
+                    if (text.isEmpty() || text.isBlank() || isSilenceMarker(text)) continue
 
                     val startTime = whisper.fullGetSegmentTimestamp0(context, i)
                     val endTime = whisper.fullGetSegmentTimestamp1(context, i)
