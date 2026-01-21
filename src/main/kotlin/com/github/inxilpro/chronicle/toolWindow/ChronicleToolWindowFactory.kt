@@ -4,6 +4,7 @@ import com.github.inxilpro.chronicle.export.TranscriptExporter
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.github.inxilpro.chronicle.services.AudioCaptureManager
 import com.github.inxilpro.chronicle.services.AudioTranscriptionService
+import com.github.inxilpro.chronicle.settings.ChronicleSettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
@@ -47,6 +48,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
     private val service = ActivityTranscriptService.getInstance(project)
     private val audioService = AudioTranscriptionService.getInstance(project)
+    private val settings = ChronicleSettings.getInstance(project)
     private val listModel = CollectionListModel<String>()
     private val eventList = JBList(listModel)
     private val startStopButton = JButton("Stop")
@@ -61,6 +63,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val audioDeviceCombo = JComboBox<String>()
     private val audioStatusLabel = JBLabel()
     private var audioEnabled = true
+    private var isStarting = false
     private val waveformPanel = AudioWaveformPanel(audioService.getSilenceThreshold())
 
     private val changeListener = ActivityTranscriptService.TranscriptChangeListener {
@@ -99,6 +102,8 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(audioStatusLabel)
         }
 
+        waveformPanel.isVisible = settings.showWaveformVisualization
+
         val controlsPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             add(buttonPanel)
@@ -126,9 +131,19 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
                     audioService.stopRecording()
                 }
             } else {
-                service.startLogging()
-                if (audioEnabled && !audioService.isRecording()) {
-                    startAudioRecording()
+                isStarting = true
+                updateButtonState()
+
+                ApplicationManager.getApplication().executeOnPooledThread {
+                    service.startLogging()
+
+                    ApplicationManager.getApplication().invokeLater {
+                        isStarting = false
+                        updateButtonState()
+                        if (audioEnabled && !audioService.isRecording()) {
+                            startAudioRecording()
+                        }
+                    }
                 }
             }
         }
@@ -179,7 +194,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
     private fun updateAudioToggleButton() {
         audioToggleButton.text = if (audioEnabled) "Disable Audio" else "Enable Audio"
-        audioDeviceCombo.isEnabled = !audioEnabled || !service.isLogging
+        audioDeviceCombo.isEnabled = !isStarting && (!audioEnabled || !service.isLogging)
     }
 
     private fun updateAudioStatusLabel() {
@@ -197,7 +212,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         when (state) {
             AudioTranscriptionService.RecordingState.STOPPED -> {
                 audioStatusLabel.text = ""
-                audioToggleButton.isEnabled = true
+                audioToggleButton.isEnabled = !isStarting
                 audioService.removeLevelListener(audioLevelListener)
             }
             AudioTranscriptionService.RecordingState.INITIALIZING -> {
@@ -207,8 +222,10 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             }
             AudioTranscriptionService.RecordingState.RECORDING -> {
                 audioStatusLabel.text = ""
-                audioToggleButton.isEnabled = true
-                audioService.addLevelListener(audioLevelListener)
+                audioToggleButton.isEnabled = !isStarting
+                if (settings.showWaveformVisualization) {
+                    audioService.addLevelListener(audioLevelListener)
+                }
             }
             AudioTranscriptionService.RecordingState.PROCESSING -> {
                 audioStatusLabel.text = "Processing..."
@@ -218,7 +235,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             AudioTranscriptionService.RecordingState.ERROR -> {
                 val error = audioService.getLastError() ?: "Unknown error"
                 audioStatusLabel.text = "Error: $error"
-                audioToggleButton.isEnabled = true
+                audioToggleButton.isEnabled = !isStarting
                 audioService.removeLevelListener(audioLevelListener)
             }
         }
@@ -252,11 +269,25 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     }
 
     private fun updateButtonState() {
-        startStopButton.text = if (service.isLogging) "Stop" else "Start"
+        startStopButton.text = when {
+            isStarting -> "Starting\u2026"
+            service.isLogging -> "Stop"
+            else -> "Start"
+        }
+        startStopButton.isEnabled = !isStarting
+        audioToggleButton.isEnabled = !isStarting && audioService.getState() !in listOf(
+            AudioTranscriptionService.RecordingState.INITIALIZING,
+            AudioTranscriptionService.RecordingState.PROCESSING
+        )
+        audioDeviceCombo.isEnabled = !isStarting && (!audioEnabled || !service.isLogging)
+
         val totalEvents = service.getEvents().size
         val truncatedNote = if (totalEvents > MAX_DISPLAYED_EVENTS) " (showing last $MAX_DISPLAYED_EVENTS)" else ""
         statusLabel.text = "$totalEvents events$truncatedNote"
+
+        resetButton.isVisible = !service.isLogging && totalEvents > 0
         exportButton.isVisible = totalEvents > 0
+        exportButton.isEnabled = !isStarting
     }
 
     override fun dispose() {

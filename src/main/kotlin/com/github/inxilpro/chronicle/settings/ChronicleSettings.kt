@@ -23,6 +23,8 @@ class ChronicleSettings : PersistentStateComponent<ChronicleSettings> {
 
     var markdownPromptTemplate: String = DEFAULT_MARKDOWN_PROMPT
 
+    var showWaveformVisualization: Boolean = false
+
     override fun getState(): ChronicleSettings = this
 
     override fun loadState(state: ChronicleSettings) {
