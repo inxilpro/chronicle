@@ -2,6 +2,7 @@ package com.github.inxilpro.chronicle.toolWindow
 
 import com.github.inxilpro.chronicle.export.TranscriptExporter
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
+import com.github.inxilpro.chronicle.services.AudioCaptureManager
 import com.github.inxilpro.chronicle.services.AudioTranscriptionService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
@@ -60,9 +61,16 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val audioDeviceCombo = JComboBox<String>()
     private val audioStatusLabel = JBLabel()
     private var audioEnabled = true
+    private val waveformPanel = AudioWaveformPanel(audioService.getSilenceThreshold())
 
     private val changeListener = ActivityTranscriptService.TranscriptChangeListener {
         scheduleRefresh()
+    }
+
+    private val audioLevelListener = AudioCaptureManager.AudioLevelListener { rms, isSilence, silenceDurationMs ->
+        ApplicationManager.getApplication().invokeLater {
+            waveformPanel.addSample(rms, isSilence, silenceDurationMs)
+        }
     }
 
     private val audioStateListener = AudioTranscriptionService.StateChangeListener { state ->
@@ -96,6 +104,8 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(buttonPanel)
             add(Box.createVerticalStrut(4))
             add(audioPanel)
+            add(Box.createVerticalStrut(4))
+            add(waveformPanel)
         }
 
         eventList.fixedCellHeight = JBUI.scale(24)
@@ -188,23 +198,28 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             AudioTranscriptionService.RecordingState.STOPPED -> {
                 audioStatusLabel.text = ""
                 audioToggleButton.isEnabled = true
+                audioService.removeLevelListener(audioLevelListener)
             }
             AudioTranscriptionService.RecordingState.INITIALIZING -> {
                 audioStatusLabel.text = "Loading model..."
                 audioToggleButton.isEnabled = false
+                waveformPanel.clear()
             }
             AudioTranscriptionService.RecordingState.RECORDING -> {
                 audioStatusLabel.text = ""
                 audioToggleButton.isEnabled = true
+                audioService.addLevelListener(audioLevelListener)
             }
             AudioTranscriptionService.RecordingState.PROCESSING -> {
                 audioStatusLabel.text = "Processing..."
                 audioToggleButton.isEnabled = false
+                audioService.removeLevelListener(audioLevelListener)
             }
             AudioTranscriptionService.RecordingState.ERROR -> {
                 val error = audioService.getLastError() ?: "Unknown error"
                 audioStatusLabel.text = "Error: $error"
                 audioToggleButton.isEnabled = true
+                audioService.removeLevelListener(audioLevelListener)
             }
         }
         updateAudioToggleButton()
@@ -247,6 +262,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     override fun dispose() {
         service.removeChangeListener(changeListener)
         audioService.removeStateListener(audioStateListener)
+        audioService.removeLevelListener(audioLevelListener)
     }
 
     private class EventListCellRenderer : DefaultListCellRenderer() {
