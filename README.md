@@ -1,4 +1,4 @@
-# chronicle
+# Chronicle
 
 ![Build](https://github.com/inxilpro/chronicle/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/29848-chronicle)
@@ -7,7 +7,9 @@
 <!-- Plugin description -->
 Chronicle is an IDE plugin that helps you build ready-to-implement handoff documents for members of your team. Simply
 hit record, and walk through the code, narrating the scope/features/decisions/changes, and then export a JSON timeline
-or Markdown document that is ready for LLM summarization. 
+or Markdown document that is ready for LLM summarization.
+
+[Quick Demo Video](https://bsky.app/profile/cmorrell.com/post/3mcuqx2k3ok2q)
 <!-- Plugin description end -->
 
 ## Installation
