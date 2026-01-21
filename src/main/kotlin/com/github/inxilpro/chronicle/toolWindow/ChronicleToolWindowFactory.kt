@@ -60,6 +60,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val audioDeviceCombo = JComboBox<String>()
     private val audioStatusLabel = JBLabel()
     private var audioEnabled = true
+    private var isStarting = false
 
     private val changeListener = ActivityTranscriptService.TranscriptChangeListener {
         scheduleRefresh()
@@ -116,9 +117,19 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
                     audioService.stopRecording()
                 }
             } else {
-                service.startLogging()
-                if (audioEnabled && !audioService.isRecording()) {
-                    startAudioRecording()
+                isStarting = true
+                updateButtonState()
+
+                ApplicationManager.getApplication().executeOnPooledThread {
+                    service.startLogging()
+
+                    ApplicationManager.getApplication().invokeLater {
+                        isStarting = false
+                        updateButtonState()
+                        if (audioEnabled && !audioService.isRecording()) {
+                            startAudioRecording()
+                        }
+                    }
                 }
             }
         }
@@ -169,7 +180,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
     private fun updateAudioToggleButton() {
         audioToggleButton.text = if (audioEnabled) "Disable Audio" else "Enable Audio"
-        audioDeviceCombo.isEnabled = !audioEnabled || !service.isLogging
+        audioDeviceCombo.isEnabled = !isStarting && (!audioEnabled || !service.isLogging)
     }
 
     private fun updateAudioStatusLabel() {
@@ -187,7 +198,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         when (state) {
             AudioTranscriptionService.RecordingState.STOPPED -> {
                 audioStatusLabel.text = ""
-                audioToggleButton.isEnabled = true
+                audioToggleButton.isEnabled = !isStarting
             }
             AudioTranscriptionService.RecordingState.INITIALIZING -> {
                 audioStatusLabel.text = "Loading model..."
@@ -195,7 +206,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             }
             AudioTranscriptionService.RecordingState.RECORDING -> {
                 audioStatusLabel.text = ""
-                audioToggleButton.isEnabled = true
+                audioToggleButton.isEnabled = !isStarting
             }
             AudioTranscriptionService.RecordingState.PROCESSING -> {
                 audioStatusLabel.text = "Processing..."
@@ -204,7 +215,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             AudioTranscriptionService.RecordingState.ERROR -> {
                 val error = audioService.getLastError() ?: "Unknown error"
                 audioStatusLabel.text = "Error: $error"
-                audioToggleButton.isEnabled = true
+                audioToggleButton.isEnabled = !isStarting
             }
         }
         updateAudioToggleButton()
@@ -237,11 +248,25 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     }
 
     private fun updateButtonState() {
-        startStopButton.text = if (service.isLogging) "Stop" else "Start"
+        startStopButton.text = when {
+            isStarting -> "Starting\u2026"
+            service.isLogging -> "Stop"
+            else -> "Start"
+        }
+        startStopButton.isEnabled = !isStarting
+        audioToggleButton.isEnabled = !isStarting && audioService.getState() !in listOf(
+            AudioTranscriptionService.RecordingState.INITIALIZING,
+            AudioTranscriptionService.RecordingState.PROCESSING
+        )
+        audioDeviceCombo.isEnabled = !isStarting && (!audioEnabled || !service.isLogging)
+
         val totalEvents = service.getEvents().size
         val truncatedNote = if (totalEvents > MAX_DISPLAYED_EVENTS) " (showing last $MAX_DISPLAYED_EVENTS)" else ""
         statusLabel.text = "$totalEvents events$truncatedNote"
+
+        resetButton.isVisible = !service.isLogging && totalEvents > 0
         exportButton.isVisible = totalEvents > 0
+        exportButton.isEnabled = !isStarting
     }
 
     override fun dispose() {
