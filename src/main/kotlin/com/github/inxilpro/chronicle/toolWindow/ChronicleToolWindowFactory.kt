@@ -25,6 +25,8 @@ import java.awt.FlowLayout
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.swing.*
+import javax.swing.event.PopupMenuEvent
+import javax.swing.event.PopupMenuListener
 
 class ChronicleToolWindowFactory : ToolWindowFactory {
 
@@ -171,6 +173,14 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         service.addChangeListener(changeListener)
         audioService.addStateListener(audioStateListener)
 
+        audioDeviceCombo.addPopupMenuListener(object : PopupMenuListener {
+            override fun popupMenuWillBecomeVisible(e: PopupMenuEvent) {
+                refreshAudioDevices()
+            }
+            override fun popupMenuWillBecomeInvisible(e: PopupMenuEvent) {}
+            override fun popupMenuCanceled(e: PopupMenuEvent) {}
+        })
+
         refreshAudioDevices()
         refreshList()
         updateButtonState()
@@ -185,10 +195,20 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     }
 
     private fun refreshAudioDevices() {
+        val previousSelection = audioDeviceCombo.selectedItem as? String
         audioDeviceCombo.removeAllItems()
         audioDeviceCombo.addItem(DEFAULT_DEVICE)
         audioService.listAvailableDevices().forEach { device ->
             audioDeviceCombo.addItem(device.name)
+        }
+        // Restore previous selection if it's still available
+        if (previousSelection != null) {
+            for (i in 0 until audioDeviceCombo.itemCount) {
+                if (audioDeviceCombo.getItemAt(i) == previousSelection) {
+                    audioDeviceCombo.selectedIndex = i
+                    return
+                }
+            }
         }
     }
 
