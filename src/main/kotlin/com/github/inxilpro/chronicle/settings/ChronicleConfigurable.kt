@@ -34,6 +34,7 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
 
     private val editingTemplates: MutableList<PromptTemplate> = mutableListOf()
     private var selectedTemplateId: String? = null
+    private var isRemovingTemplate: Boolean = false
 
     override fun getDisplayName(): String = "Chronicle"
 
@@ -205,12 +206,18 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
         )
 
         if (result == Messages.YES) {
-            editingTemplates.removeIf { it.id == selected.id }
-            if (selectedTemplateId == selected.id) {
-                selectedTemplateId = editingTemplates.firstOrNull()?.id
+            isRemovingTemplate = true
+            try {
+                editingTemplates.removeIf { it.id == selected.id }
+                if (selectedTemplateId == selected.id) {
+                    selectedTemplateId = editingTemplates.firstOrNull()?.id
+                }
+                refreshTemplateList()
+                selectTemplateInList(selectedTemplateId)
+                loadSelectedTemplateContent()
+            } finally {
+                isRemovingTemplate = false
             }
-            refreshTemplateList()
-            selectTemplateInList(selectedTemplateId)
         }
     }
 
@@ -259,6 +266,7 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
     }
 
     private fun saveCurrentTemplateContent() {
+        if (isRemovingTemplate) return
         val currentId = selectedTemplateId ?: return
         val content = promptTextArea?.text ?: return
         editingTemplates.find { it.id == currentId }?.content = content
@@ -348,6 +356,7 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
         templateList = null
         templateListModel = null
         editingTemplates.clear()
+        isRemovingTemplate = false
     }
 
     private data class TemplateListItem(val id: String, val name: String) {

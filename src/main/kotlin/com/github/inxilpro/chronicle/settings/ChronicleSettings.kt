@@ -73,6 +73,13 @@ class ChronicleSettings : PersistentStateComponent<ChronicleSettings> {
             selectedTemplateId = DEFAULT_TEMPLATE_ID
             @Suppress("DEPRECATION")
             markdownPromptTemplate = ""
+        } else {
+            // Ensure default template has content (fixes blank template on first load)
+            promptTemplates.find { it.id == DEFAULT_TEMPLATE_ID }?.let { defaultTemplate ->
+                if (defaultTemplate.content.isBlank()) {
+                    defaultTemplate.content = DEFAULT_MARKDOWN_PROMPT
+                }
+            }
         }
     }
 
@@ -133,6 +140,13 @@ class ChronicleSettings : PersistentStateComponent<ChronicleSettings> {
                 settings.promptTemplates.add(
                     PromptTemplate(DEFAULT_TEMPLATE_ID, DEFAULT_TEMPLATE_NAME, DEFAULT_MARKDOWN_PROMPT)
                 )
+            } else {
+                // Ensure default template has content (fixes blank template on first load)
+                settings.promptTemplates.find { it.id == DEFAULT_TEMPLATE_ID }?.let { defaultTemplate ->
+                    if (defaultTemplate.content.isBlank()) {
+                        defaultTemplate.content = DEFAULT_MARKDOWN_PROMPT
+                    }
+                }
             }
             return settings
         }
