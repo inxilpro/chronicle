@@ -24,8 +24,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
         myFixture.openFileInEditor(psiFile.virtualFile)
         myFixture.editor.selectionModel.setSelection(0, 8)
 
-        // Wait for debounce (300ms default + buffer)
-        Thread.sleep(400)
+        service.selectionListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)
@@ -45,7 +44,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
         myFixture.openFileInEditor(psiFile.virtualFile)
         myFixture.editor.selectionModel.setSelection(0, 5)
 
-        Thread.sleep(400)
+        service.selectionListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)
@@ -76,7 +75,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
         val endOffset = doc.getLineEndOffset(2)
         myFixture.editor.selectionModel.setSelection(startOffset, endOffset)
 
-        Thread.sleep(400)
+        service.selectionListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)
@@ -100,7 +99,7 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
         myFixture.openFileInEditor(psiFile.virtualFile)
         myFixture.editor.selectionModel.setSelection(4, 12)
 
-        Thread.sleep(400)
+        service.selectionListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)
@@ -120,15 +119,16 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
         val psiFile = myFixture.configureByText("NoSelection.kt", "val x = 1")
         myFixture.openFileInEditor(psiFile.virtualFile)
 
-        // Wait without making a selection
-        Thread.sleep(400)
+        // Flush any pending events from setup
+        service.selectionListener?.flushPendingEvents()
 
         val initialEventCount = service.getEvents().size
 
-        // Remove any selection
+        // Remove any selection (should not trigger an event)
         myFixture.editor.selectionModel.removeSelection()
 
-        Thread.sleep(400)
+        // Flush again - should not produce any events since there's no selection
+        service.selectionListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)
@@ -151,15 +151,13 @@ class DebouncedSelectionListenerTest : BasePlatformTestCase() {
 
         myFixture.openFileInEditor(psiFile.virtualFile)
 
-        // Make rapid selections (each within debounce window)
+        // Make rapid selections (each cancels the previous pending event)
         myFixture.editor.selectionModel.setSelection(0, 5) // "first"
-        Thread.sleep(50)
         myFixture.editor.selectionModel.setSelection(6, 12) // "second"
-        Thread.sleep(50)
         myFixture.editor.selectionModel.setSelection(13, 18) // "third"
 
-        // Wait for debounce to complete
-        Thread.sleep(400)
+        // Flush pending events - should only log the last selection
+        service.selectionListener?.flushPendingEvents()
 
         val events = service.getEvents()
         val newEvents = events.drop(initialEventCount)

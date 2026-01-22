@@ -23,6 +23,7 @@ class DebouncedSelectionListener(
         get() = ActivityTranscriptService.getInstance(project)
 
     private var pendingJob: ScheduledFuture<*>? = null
+    private var pendingEventData: SelectionEvent? = null
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
     override fun selectionChanged(event: IdeaSelectionEvent) {
@@ -42,19 +43,36 @@ class DebouncedSelectionListener(
             val endLine = document.getLineNumber(selection.selectionEnd) + 1
             val selectedText = selection.selectedText?.take(500)
 
+            val selectionEvent = SelectionEvent(
+                path = filePath,
+                startLine = startLine,
+                endLine = endLine,
+                text = selectedText
+            )
+            pendingEventData = selectionEvent
+
             pendingJob = executor.schedule({
-                transcriptService.log(SelectionEvent(
-                    path = filePath,
-                    startLine = startLine,
-                    endLine = endLine,
-                    text = selectedText
-                ))
+                pendingEventData = null
+                transcriptService.log(selectionEvent)
             }, debounceMs, TimeUnit.MILLISECONDS)
+        } else {
+            pendingEventData = null
+        }
+    }
+
+    internal fun flushPendingEvents() {
+        pendingJob?.cancel(false)
+        pendingJob = null
+        pendingEventData?.let { event ->
+            pendingEventData = null
+            transcriptService.log(event)
         }
     }
 
     override fun dispose() {
         pendingJob?.cancel(true)
+        pendingJob = null
+        pendingEventData = null
         executor.shutdownNow()
     }
 

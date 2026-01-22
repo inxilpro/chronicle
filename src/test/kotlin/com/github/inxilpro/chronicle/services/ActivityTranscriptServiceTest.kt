@@ -58,12 +58,9 @@ class ActivityTranscriptServiceTest : BasePlatformTestCase() {
 
         val originalStart = service.getSessionStart()
 
-        // Small delay to ensure new session has different timestamp
-        Thread.sleep(10)
-
         service.resetSession()
 
-        // Session start should be updated
+        // Session start should be updated (will be >= original since time moves forward)
         assertTrue(service.getSessionStart() >= originalStart)
     }
 

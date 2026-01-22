@@ -39,6 +39,8 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     private val changeListeners: MutableList<TranscriptChangeListener> = CopyOnWriteArrayList()
     internal var documentChangeListener: DocumentChangeListener? = null
         private set
+    internal var selectionListener: DebouncedSelectionListener? = null
+        private set
     internal var shellHistoryTracker: ShellHistoryTracker? = null
         private set
 
@@ -51,7 +53,7 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     }
 
     private fun registerListeners() {
-        DebouncedSelectionListener.register(project, this)
+        selectionListener = DebouncedSelectionListener.register(project, this)
         documentChangeListener = DocumentChangeListener.register(project, this)
         FileSystemListener.register(project, this)
         VisibleAreaTracker.register(project, this)
