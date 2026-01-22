@@ -39,12 +39,22 @@ class BatchTranscriptionProcessor(
             "(inaudible)"
         )
 
+        // Patterns for non-speech annotations like "(eerie music playing)" or "[background noise]"
+        private val NON_SPEECH_PATTERN = Regex(
+            """^\s*[\[\(][\s\w]*(?:music|singing|playing|noise|sound|laughter|applause|cheering|cough|sneeze|sigh|breath|static|hum|buzz|beep|ring|click|bang|thud|rustle|shuffle|footstep|door|phone|alarm|bird|dog|cat|wind|rain|thunder|water|engine|traffic|crowd|chatter|murmur|whisper|echo|feedback|distortion|interference|tone|ambient|background|eerie|dramatic|soft|loud|faint)[\s\w]*[\]\)]\s*$""",
+            RegexOption.IGNORE_CASE
+        )
+
         private fun isSilenceMarker(text: String): Boolean {
             return text in SILENCE_MARKERS || text.lowercase().let {
                 it.startsWith("[silence") || it.startsWith("(silence") ||
                 it.startsWith("[blank") || it.startsWith("[inaudible") ||
                 it.startsWith("(inaudible")
             }
+        }
+
+        private fun isNonSpeechAnnotation(text: String): Boolean {
+            return NON_SPEECH_PATTERN.matches(text)
         }
     }
 
@@ -156,7 +166,7 @@ class BatchTranscriptionProcessor(
 
                 for (i in 0 until numSegments) {
                     val text = whisper.fullGetSegmentText(context, i)?.trim() ?: continue
-                    if (text.isEmpty() || text.isBlank() || isSilenceMarker(text)) continue
+                    if (text.isEmpty() || text.isBlank() || isSilenceMarker(text) || isNonSpeechAnnotation(text)) continue
 
                     val startTime = whisper.fullGetSegmentTimestamp0(context, i)
                     val endTime = whisper.fullGetSegmentTimestamp1(context, i)
