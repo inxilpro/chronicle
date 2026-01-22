@@ -7,6 +7,8 @@ import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFileWrapper
+import java.awt.Toolkit
+import java.awt.datatransfer.StringSelection
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
@@ -36,6 +38,12 @@ class TranscriptExporter(private val project: Project) {
             val content = generateExportContent()
             fileWrapper.file.writeText(content)
         }
+    }
+
+    fun copyToClipboard() {
+        val content = generateExportContent()
+        val selection = StringSelection(content)
+        Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
     }
 
     fun generateExportContent(): String {

@@ -54,6 +54,7 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
     private val startStopButton = JButton("Stop")
     private val resetButton = JButton("Reset")
     private val exportButton = JButton("Export")
+    private val copyButton = JButton("Copy")
     private val statusLabel = JBLabel()
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
     private val refreshAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
@@ -92,6 +93,8 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             add(resetButton)
             add(Box.createHorizontalStrut(8))
             add(exportButton)
+            add(Box.createHorizontalStrut(8))
+            add(copyButton)
             add(Box.createHorizontalGlue())
             add(statusLabel)
         }
@@ -154,6 +157,10 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
 
         exportButton.addActionListener {
             TranscriptExporter.getInstance(project).export()
+        }
+
+        copyButton.addActionListener {
+            TranscriptExporter.getInstance(project).copyToClipboard()
         }
 
         audioToggleButton.addActionListener {
@@ -288,6 +295,8 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         resetButton.isVisible = !service.isLogging && totalEvents > 0
         exportButton.isVisible = totalEvents > 0
         exportButton.isEnabled = !isStarting
+        copyButton.isVisible = totalEvents > 0
+        copyButton.isEnabled = !isStarting
     }
 
     override fun dispose() {
