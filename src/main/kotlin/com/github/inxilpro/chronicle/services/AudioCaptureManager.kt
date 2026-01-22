@@ -38,11 +38,12 @@ class AudioCaptureManager(
         }
 
         try {
-            val mixer = findMixer(deviceName)
+            val mixerInfo = findMixer(deviceName)
             val info = DataLine.Info(TargetDataLine::class.java, audioFormat)
 
-            targetDataLine = if (mixer != null) {
-                AudioSystem.getLine(info) as TargetDataLine
+            targetDataLine = if (mixerInfo != null) {
+                val mixer = AudioSystem.getMixer(mixerInfo)
+                mixer.getLine(info) as TargetDataLine
             } else {
                 AudioSystem.getTargetDataLine(audioFormat)
             }
