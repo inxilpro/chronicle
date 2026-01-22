@@ -23,6 +23,8 @@
             instance="com.github.inxilpro.chronicle.settings.ChronicleConfigurable"
             id="com.github.inxilpro.chronicle.settings.ChronicleConfigurable"
             displayName="Chronicle"/>
+        <notificationGroup id="Chronicle Notifications"
+                           displayType="BALLOON"/>
     </extensions>
 
     <projectListeners>

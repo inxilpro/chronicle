@@ -118,7 +118,9 @@ class TranscriptExporterTest : BasePlatformTestCase() {
 
     fun testMarkdownExportReplacesPlaceholder() {
         settings.exportFormat = ExportFormat.MARKDOWN
-        settings.markdownPromptTemplate = "Before {{SESSION_JSON}} After"
+        val template = settings.getSelectedTemplate()
+        assertNotNull(template)
+        template!!.content = "Before {{SESSION_JSON}} After"
         transcriptService.log(FileOpenedEvent(path = "/test/file.kt"))
 
         val content = exporter.generateExportContent()

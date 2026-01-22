@@ -5,6 +5,7 @@ import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.github.inxilpro.chronicle.services.AudioCaptureManager
 import com.github.inxilpro.chronicle.services.AudioTranscriptionService
 import com.github.inxilpro.chronicle.settings.ChronicleSettings
+import com.github.inxilpro.chronicle.settings.ExportFormat
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
@@ -155,7 +156,22 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         }
 
         exportButton.addActionListener {
-            TranscriptExporter.getInstance(project).export()
+            val templates = settings.getTemplates()
+            val isMarkdownWithMultipleTemplates = settings.exportFormat == ExportFormat.MARKDOWN && templates.size > 1
+
+            if (isMarkdownWithMultipleTemplates) {
+                val popup = JPopupMenu()
+                templates.forEach { template ->
+                    val menuItem = JMenuItem(template.name)
+                    menuItem.addActionListener {
+                        TranscriptExporter.getInstance(project).export(template.id)
+                    }
+                    popup.add(menuItem)
+                }
+                popup.show(exportButton, 0, exportButton.height)
+            } else {
+                TranscriptExporter.getInstance(project).export()
+            }
         }
 
         audioToggleButton.addActionListener {
@@ -308,6 +324,10 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
         resetButton.isVisible = !service.isLogging && totalEvents > 0
         exportButton.isVisible = totalEvents > 0
         exportButton.isEnabled = !isStarting
+
+        val templates = settings.getTemplates()
+        val hasMultipleTemplates = settings.exportFormat == ExportFormat.MARKDOWN && templates.size > 1
+        exportButton.text = if (hasMultipleTemplates) "Export \u25BE" else "Export"
     }
 
     override fun dispose() {
