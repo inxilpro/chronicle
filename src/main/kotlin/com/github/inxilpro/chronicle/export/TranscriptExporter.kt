@@ -3,6 +3,7 @@ package com.github.inxilpro.chronicle.export
 import com.github.inxilpro.chronicle.services.TranscriptExportService
 import com.github.inxilpro.chronicle.settings.ChronicleSettings
 import com.github.inxilpro.chronicle.settings.ExportFormat
+import com.github.inxilpro.chronicle.settings.PromptTemplate
 import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import com.intellij.openapi.project.Project
@@ -15,7 +16,13 @@ class TranscriptExporter(private val project: Project) {
     private val settings = ChronicleSettings.getInstance(project)
     private val exportService = TranscriptExportService.getInstance(project)
 
-    fun export() {
+    fun export(templateId: String? = null) {
+        val template = if (templateId != null) {
+            settings.getTemplateById(templateId)
+        } else {
+            settings.getSelectedTemplate()
+        }
+
         val extension = when (settings.exportFormat) {
             ExportFormat.JSON -> "json"
             ExportFormat.MARKDOWN -> "md"
@@ -33,16 +40,19 @@ class TranscriptExporter(private val project: Project) {
         val wrapper: VirtualFileWrapper? = saveDialog.save(defaultFileName)
 
         wrapper?.let { fileWrapper ->
-            val content = generateExportContent()
+            val content = generateExportContent(template)
             fileWrapper.file.writeText(content)
         }
     }
 
-    fun generateExportContent(): String {
+    fun generateExportContent(template: PromptTemplate? = null): String {
         val json = generateJson()
         return when (settings.exportFormat) {
             ExportFormat.JSON -> json
-            ExportFormat.MARKDOWN -> settings.markdownPromptTemplate.replace("{{SESSION_JSON}}", json)
+            ExportFormat.MARKDOWN -> {
+                val templateContent = template?.content ?: settings.getSelectedTemplate().content
+                templateContent.replace("{{SESSION_JSON}}", json)
+            }
         }
     }
 
