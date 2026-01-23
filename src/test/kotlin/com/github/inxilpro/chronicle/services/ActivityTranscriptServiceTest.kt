@@ -67,6 +67,40 @@ class ActivityTranscriptServiceTest : BasePlatformTestCase() {
         assertTrue(service.getSessionStart() >= originalStart)
     }
 
+    fun testStartLoggingUpdatesSessionStartOnFreshSession() {
+        val service = project.service<ActivityTranscriptService>()
+
+        // Reset the initialization flag to simulate a fresh session
+        // (other tests in this class may have already called startLogging)
+        service.hasInitializedSession = false
+
+        // Get the current session start
+        val initialStart = service.getSessionStart()
+
+        // Delay to ensure new session has different timestamp
+        Thread.sleep(50)
+
+        // Capture the time just before calling startLogging
+        val beforeStartLogging = java.time.Instant.now()
+
+        // Start logging - should initialize the session since flag is false
+        service.startLogging()
+
+        val newSessionStart = service.getSessionStart()
+
+        // Session start should be updated to a time after the initial start
+        assertTrue(
+            "Session start should be updated when logging starts on a fresh session",
+            newSessionStart > initialStart
+        )
+
+        // Session start should be close to when startLogging was called
+        assertTrue(
+            "Session start should be approximately when startLogging was called",
+            newSessionStart >= beforeStartLogging
+        )
+    }
+
     fun testCaptureInitialStateWithOpenFile() {
         // Create and open a file using the test fixture
         myFixture.configureByText("TestFile.kt", "fun main() {}")
