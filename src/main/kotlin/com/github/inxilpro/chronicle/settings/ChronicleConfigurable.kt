@@ -35,6 +35,7 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
     private val editingTemplates: MutableList<PromptTemplate> = mutableListOf()
     private var selectedTemplateId: String? = null
     private var isRemovingTemplate: Boolean = false
+    private var isInitializing: Boolean = false
 
     override fun getDisplayName(): String = "Chronicle"
 
@@ -266,7 +267,7 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
     }
 
     private fun saveCurrentTemplateContent() {
-        if (isRemovingTemplate) return
+        if (isRemovingTemplate || isInitializing) return
         val currentId = selectedTemplateId ?: return
         val content = promptTextArea?.text ?: return
         editingTemplates.find { it.id == currentId }?.content = content
@@ -320,28 +321,33 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
     }
 
     override fun reset() {
-        val settings = ChronicleSettings.getInstance(project)
-        when (settings.exportFormat) {
-            ExportFormat.JSON -> jsonRadioButton?.isSelected = true
-            ExportFormat.MARKDOWN -> markdownRadioButton?.isSelected = true
-        }
-        when (settings.exportDestination) {
-            ExportDestination.CLIPBOARD -> clipboardRadioButton?.isSelected = true
-            ExportDestination.FILE -> fileRadioButton?.isSelected = true
-        }
+        isInitializing = true
+        try {
+            val settings = ChronicleSettings.getInstance(project)
+            when (settings.exportFormat) {
+                ExportFormat.JSON -> jsonRadioButton?.isSelected = true
+                ExportFormat.MARKDOWN -> markdownRadioButton?.isSelected = true
+            }
+            when (settings.exportDestination) {
+                ExportDestination.CLIPBOARD -> clipboardRadioButton?.isSelected = true
+                ExportDestination.FILE -> fileRadioButton?.isSelected = true
+            }
 
-        editingTemplates.clear()
-        settings.getTemplates().forEach { template ->
-            editingTemplates.add(template.copy())
+            editingTemplates.clear()
+            settings.getTemplates().forEach { template ->
+                editingTemplates.add(template.copy())
+            }
+            selectedTemplateId = settings.selectedTemplateId
+
+            refreshTemplateList()
+            selectTemplateInList(selectedTemplateId)
+            loadSelectedTemplateContent()
+
+            waveformCheckbox?.isSelected = settings.showWaveformVisualization
+            updatePromptVisibility()
+        } finally {
+            isInitializing = false
         }
-        selectedTemplateId = settings.selectedTemplateId
-
-        refreshTemplateList()
-        selectTemplateInList(selectedTemplateId)
-        loadSelectedTemplateContent()
-
-        waveformCheckbox?.isSelected = settings.showWaveformVisualization
-        updatePromptVisibility()
     }
 
     override fun disposeUIResources() {
@@ -357,6 +363,7 @@ class ChronicleConfigurable(private val project: Project) : Configurable {
         templateListModel = null
         editingTemplates.clear()
         isRemovingTemplate = false
+        isInitializing = false
     }
 
     private data class TemplateListItem(val id: String, val name: String) {

@@ -150,4 +150,50 @@ class ChronicleSettingsTest : BasePlatformTestCase() {
         val settings = ChronicleSettings.getInstance(project)
         assertEquals(ExportDestination.CLIPBOARD, settings.exportDestination)
     }
+
+    fun testTemplateContentPreservedThroughMultipleAccesses() {
+        val settings = ChronicleSettings.getInstance(project)
+
+        // Get the default template and verify it has content
+        val template = settings.getSelectedTemplate()
+        assertNotNull(template)
+        val originalContent = template!!.content
+        assertTrue(originalContent.isNotBlank())
+
+        // Access settings multiple times (simulating settings dialog open/close)
+        repeat(5) {
+            val settingsAgain = ChronicleSettings.getInstance(project)
+            val templateAgain = settingsAgain.getSelectedTemplate()
+            assertNotNull(templateAgain)
+            assertEquals(originalContent, templateAgain!!.content)
+        }
+    }
+
+    fun testAddAndRemoveTemplatePreservesOriginalContent() {
+        val settings = ChronicleSettings.getInstance(project)
+
+        // Get original content
+        val originalTemplate = settings.getSelectedTemplate()
+        assertNotNull(originalTemplate)
+        val originalContent = originalTemplate!!.content
+        assertTrue(originalContent.isNotBlank())
+
+        // Add multiple templates and remove them
+        val template1 = settings.addTemplate("Temp 1", "Content 1")
+        val template2 = settings.addTemplate("Temp 2", "Content 2")
+        assertEquals(3, settings.getTemplates().size)
+
+        // Remove in different order
+        settings.removeTemplate(template1.id)
+        assertEquals(2, settings.getTemplates().size)
+
+        settings.removeTemplate(template2.id)
+        assertEquals(1, settings.getTemplates().size)
+
+        // Verify original template content is preserved
+        val finalTemplate = settings.getSelectedTemplate()
+        assertNotNull(finalTemplate)
+        assertEquals(ChronicleSettings.DEFAULT_TEMPLATE_ID, finalTemplate!!.id)
+        assertEquals(originalContent, finalTemplate.content)
+    }
 }
