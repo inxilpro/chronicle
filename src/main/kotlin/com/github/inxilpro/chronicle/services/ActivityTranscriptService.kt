@@ -35,6 +35,7 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     private val events: MutableList<TranscriptEvent> = CopyOnWriteArrayList()
     private var sessionStart: Instant = Instant.now()
     private var sessionGitBranch: String? = null
+    internal var hasInitializedSession: Boolean = false
     private val debounceTimers: MutableMap<String, ScheduledFuture<*>> = mutableMapOf()
     private val changeListeners: MutableList<TranscriptChangeListener> = CopyOnWriteArrayList()
     internal var documentChangeListener: DocumentChangeListener? = null
@@ -83,6 +84,7 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
 
     fun resetSession() {
         events.clear()
+        hasInitializedSession = true
         sessionStart = Instant.now()
         sessionGitBranch = GitBranchHelper.getCurrentBranch(project)
         thisLogger().info("Session reset for project: ${project.name}")
@@ -91,9 +93,10 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     }
 
     fun startLogging() {
-        val shouldCaptureInitialState = events.isEmpty()
         isLogging = true
-        if (shouldCaptureInitialState) {
+        if (!hasInitializedSession) {
+            hasInitializedSession = true
+            sessionStart = Instant.now()
             sessionGitBranch = GitBranchHelper.getCurrentBranch(project)
             captureInitialState()
         }
