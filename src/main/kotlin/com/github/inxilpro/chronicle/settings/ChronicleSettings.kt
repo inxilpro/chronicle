@@ -25,6 +25,8 @@ class ChronicleSettings : PersistentStateComponent<ChronicleSettings> {
 
     var showWaveformVisualization: Boolean = false
 
+    var enableSecretFiltering: Boolean = true
+
     override fun getState(): ChronicleSettings = this
 
     override fun loadState(state: ChronicleSettings) {
