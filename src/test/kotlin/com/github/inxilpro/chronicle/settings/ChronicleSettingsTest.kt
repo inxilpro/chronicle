@@ -15,11 +15,18 @@ class ChronicleSettingsTest : BasePlatformTestCase() {
         assertEquals(ExportFormat.MARKDOWN, settings.exportFormat)
     }
 
-    fun testDefaultMarkdownPromptTemplateIsSet() {
+    fun testDefaultTemplateIsCreated() {
         val settings = project.service<ChronicleSettings>()
-        assertNotNull(settings.markdownPromptTemplate)
-        assertTrue(settings.markdownPromptTemplate.isNotEmpty())
-        assertTrue(settings.markdownPromptTemplate.contains("{{SESSION_JSON}}"))
+        assertTrue(settings.promptTemplates.isNotEmpty())
+        assertEquals(ChronicleSettings.DEFAULT_TEMPLATE_NAME, settings.promptTemplates.first().name)
+    }
+
+    fun testDefaultTemplateHasContent() {
+        val settings = project.service<ChronicleSettings>()
+        val template = settings.getSelectedTemplate()
+        assertNotNull(template.content)
+        assertTrue(template.content.isNotEmpty())
+        assertTrue(template.content.contains("{{SESSION_JSON}}"))
     }
 
     fun testExportFormatCanBeChanged() {
@@ -28,11 +35,12 @@ class ChronicleSettingsTest : BasePlatformTestCase() {
         assertEquals(ExportFormat.JSON, settings.exportFormat)
     }
 
-    fun testMarkdownPromptTemplateCanBeChanged() {
+    fun testTemplateContentCanBeChanged() {
         val settings = project.service<ChronicleSettings>()
         val customTemplate = "Custom template: {{SESSION_JSON}}"
-        settings.markdownPromptTemplate = customTemplate
-        assertEquals(customTemplate, settings.markdownPromptTemplate)
+        val template = settings.getSelectedTemplate()
+        template.content = customTemplate
+        assertEquals(customTemplate, settings.getSelectedTemplate().content)
     }
 
     fun testDefaultPromptContainsExpectedSections() {
@@ -42,5 +50,65 @@ class ChronicleSettingsTest : BasePlatformTestCase() {
         assertTrue(defaultPrompt.contains("## Output Structure"))
         assertTrue(defaultPrompt.contains("## Guidelines"))
         assertTrue(defaultPrompt.contains("## Session Data"))
+    }
+
+    fun testGetSelectedTemplateReturnsFirstIfNotFound() {
+        val settings = project.service<ChronicleSettings>()
+        settings.selectedTemplateId = "nonexistent-id"
+        val template = settings.getSelectedTemplate()
+        assertNotNull(template)
+        assertEquals(settings.promptTemplates.first().id, template.id)
+    }
+
+    fun testGetTemplateByIdReturnsNullForNonexistent() {
+        val settings = project.service<ChronicleSettings>()
+        val template = settings.getTemplateById("nonexistent-id")
+        assertNull(template)
+    }
+
+    fun testGetTemplateByIdReturnsCorrectTemplate() {
+        val settings = project.service<ChronicleSettings>()
+        val firstTemplate = settings.promptTemplates.first()
+        val foundTemplate = settings.getTemplateById(firstTemplate.id)
+        assertNotNull(foundTemplate)
+        assertEquals(firstTemplate.id, foundTemplate!!.id)
+    }
+
+    fun testMultipleTemplatesCanBeAdded() {
+        val settings = project.service<ChronicleSettings>()
+        val initialCount = settings.promptTemplates.size
+
+        settings.promptTemplates.add(PromptTemplate(
+            name = "Second Template",
+            content = "Second content {{SESSION_JSON}}"
+        ))
+
+        assertEquals(initialCount + 1, settings.promptTemplates.size)
+    }
+
+    fun testSelectedTemplateIdCanBeChanged() {
+        val settings = project.service<ChronicleSettings>()
+
+        val secondTemplate = PromptTemplate(
+            name = "Second Template",
+            content = "Second content {{SESSION_JSON}}"
+        )
+        settings.promptTemplates.add(secondTemplate)
+        settings.selectedTemplateId = secondTemplate.id
+
+        val selected = settings.getSelectedTemplate()
+        assertEquals(secondTemplate.id, selected.id)
+        assertEquals("Second Template", selected.name)
+    }
+
+    fun testTemplateNameCanBeChanged() {
+        val settings = project.service<ChronicleSettings>()
+        val template = settings.promptTemplates.first()
+        template.name = "Renamed Template"
+        assertEquals("Renamed Template", settings.promptTemplates.first().name)
+    }
+
+    fun testDefaultTemplateNameIsHandoffDocument() {
+        assertEquals("Handoff Document", ChronicleSettings.DEFAULT_TEMPLATE_NAME)
     }
 }

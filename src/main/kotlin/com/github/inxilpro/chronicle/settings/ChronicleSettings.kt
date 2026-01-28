@@ -6,10 +6,20 @@ import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.project.Project
 import com.intellij.util.xmlb.XmlSerializerUtil
+import java.util.UUID
 
 enum class ExportFormat {
     JSON,
     MARKDOWN
+}
+
+data class PromptTemplate(
+    var id: String = UUID.randomUUID().toString(),
+    var name: String = "",
+    var content: String = ""
+) {
+    // No-arg constructor required for XML serialization
+    constructor() : this(UUID.randomUUID().toString(), "", "")
 }
 
 @State(
@@ -21,7 +31,12 @@ class ChronicleSettings : PersistentStateComponent<ChronicleSettings> {
 
     var exportFormat: ExportFormat = ExportFormat.MARKDOWN
 
-    var markdownPromptTemplate: String = DEFAULT_MARKDOWN_PROMPT
+    @Deprecated("Use promptTemplates instead", ReplaceWith("promptTemplates"))
+    var markdownPromptTemplate: String = ""
+
+    var promptTemplates: MutableList<PromptTemplate> = mutableListOf()
+
+    var selectedTemplateId: String = ""
 
     var showWaveformVisualization: Boolean = false
 
@@ -29,9 +44,51 @@ class ChronicleSettings : PersistentStateComponent<ChronicleSettings> {
 
     override fun loadState(state: ChronicleSettings) {
         XmlSerializerUtil.copyBean(state, this)
+        migrateIfNeeded()
+    }
+
+    fun getSelectedTemplate(): PromptTemplate {
+        ensureDefaultTemplate()
+        return promptTemplates.find { it.id == selectedTemplateId }
+            ?: promptTemplates.first()
+    }
+
+    fun getTemplateById(id: String): PromptTemplate? {
+        return promptTemplates.find { it.id == id }
+    }
+
+    private fun migrateIfNeeded() {
+        // Migrate from old single-template format
+        @Suppress("DEPRECATION")
+        if (promptTemplates.isEmpty() && markdownPromptTemplate.isNotEmpty()) {
+            promptTemplates.add(PromptTemplate(
+                id = UUID.randomUUID().toString(),
+                name = DEFAULT_TEMPLATE_NAME,
+                content = markdownPromptTemplate
+            ))
+            selectedTemplateId = promptTemplates.first().id
+            markdownPromptTemplate = ""
+        }
+        ensureDefaultTemplate()
+    }
+
+    private fun ensureDefaultTemplate() {
+        if (promptTemplates.isEmpty()) {
+            promptTemplates.add(PromptTemplate(
+                id = UUID.randomUUID().toString(),
+                name = DEFAULT_TEMPLATE_NAME,
+                content = DEFAULT_MARKDOWN_PROMPT
+            ))
+            selectedTemplateId = promptTemplates.first().id
+        }
+        if (selectedTemplateId.isEmpty() || promptTemplates.none { it.id == selectedTemplateId }) {
+            selectedTemplateId = promptTemplates.first().id
+        }
     }
 
     companion object {
+        const val DEFAULT_TEMPLATE_NAME = "Handoff Document"
+
         fun getInstance(project: Project): ChronicleSettings {
             return project.getService(ChronicleSettings::class.java)
         }
