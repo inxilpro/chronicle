@@ -16,11 +16,10 @@ class TranscriptEventTypeAdapterTest {
 
     @Test
     fun testSerializeFileOpenedEvent() {
-        val event = FileOpenedEvent("/test/file.kt", isInitial = true)
+        val event = FileOpenedEvent("/test/file.kt")
         val json = gson.toJson(event, TranscriptEvent::class.java)
         assertTrue(json.contains("\"type\":\"file_opened\""))
         assertTrue(json.contains("\"/test/file.kt\""))
-        assertTrue(json.contains("\"isInitial\":true"))
     }
 
     @Test
@@ -37,15 +36,22 @@ class TranscriptEventTypeAdapterTest {
     fun testSerializeAudioTranscriptionEvent() {
         val event = AudioTranscriptionEvent(
             transcriptionText = "Hello world",
-            durationMs = 1500,
-            language = "en",
-            confidence = 0.95f
+            confidence = 0.3f
         )
         val json = gson.toJson(event, TranscriptEvent::class.java)
         assertTrue(json.contains("\"type\":\"audio_transcription\""))
         assertTrue(json.contains("\"Hello world\""))
-        assertTrue(json.contains("\"durationMs\":1500"))
-        assertTrue(json.contains("\"confidence\":0.95"))
+        assertTrue(json.contains("\"confidence\":0.3"))
+        assertFalse("Should not contain durationMs", json.contains("durationMs"))
+        assertFalse("Should not contain language", json.contains("language"))
+    }
+
+    @Test
+    fun testSerializeAudioTranscriptionEventOmitsNullConfidence() {
+        val event = AudioTranscriptionEvent(transcriptionText = "Hello world")
+        val json = gson.toJson(event, TranscriptEvent::class.java)
+        assertTrue(json.contains("\"type\":\"audio_transcription\""))
+        assertFalse("Null confidence should be omitted", json.contains("confidence"))
     }
 
     @Test
@@ -72,5 +78,15 @@ class TranscriptEventTypeAdapterTest {
         val json = gson.toJson(event, TranscriptEvent::class.java)
         assertFalse(json.contains("\"summary\""))
         assertFalse(json.contains("Opened"))
+    }
+
+    @Test
+    fun testVisibleAreaEventOmitsContentDescription() {
+        val event = VisibleAreaEvent("/test.kt", 1, 30)
+        val json = gson.toJson(event, TranscriptEvent::class.java)
+        assertTrue(json.contains("\"type\":\"visible_area\""))
+        assertTrue(json.contains("\"startLine\":1"))
+        assertTrue(json.contains("\"endLine\":30"))
+        assertFalse("Should not contain contentDescription", json.contains("contentDescription"))
     }
 }

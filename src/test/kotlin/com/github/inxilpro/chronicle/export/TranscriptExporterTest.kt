@@ -37,10 +37,11 @@ class TranscriptExporterTest : BasePlatformTestCase() {
         assertTrue(json.contains("\"sessionStart\""))
         assertTrue(json.contains("\"exportedAt\""))
         assertTrue(json.contains("\"projectName\""))
+        assertTrue(json.contains("\"projectRoot\""))
     }
 
     fun testGenerateJsonIncludesEvents() {
-        transcriptService.log(FileOpenedEvent(path = "/test/file.kt", isInitial = false))
+        transcriptService.log(FileOpenedEvent(path = "/test/file.kt"))
         transcriptService.log(FileClosedEvent(path = "/test/file.kt"))
 
         val json = exporter.generateJson()
@@ -68,26 +69,18 @@ class TranscriptExporterTest : BasePlatformTestCase() {
 
     fun testGenerateJsonHandlesAudioTranscriptionEvent() {
         transcriptService.log(AudioTranscriptionEvent(
-            transcriptionText = "Hello world",
-            durationMs = 5000,
-            language = "en",
-            confidence = 0.95f
+            transcriptionText = "Hello world"
         ))
 
         val json = exporter.generateJson()
 
         assertTrue(json.contains("\"audio_transcription\""))
         assertTrue(json.contains("Hello world"))
-        assertTrue(json.contains("\"durationMs\""))
-        assertTrue(json.contains("5000"))
     }
 
     fun testGenerateJsonEscapesSpecialCharacters() {
         transcriptService.log(AudioTranscriptionEvent(
-            transcriptionText = "Text with \"quotes\" and\nnewlines",
-            durationMs = 1000,
-            language = "en",
-            confidence = 0.9f
+            transcriptionText = "Text with \"quotes\" and\nnewlines"
         ))
 
         val json = exporter.generateJson()
@@ -165,7 +158,9 @@ class TranscriptExporterTest : BasePlatformTestCase() {
 
         val json = exporter.generateJson()
 
-        assertTrue(json.contains("\"branch\":"))
+        // With null serialization removed, null branch should not appear as "branch": null
+        // but the event should still be in the JSON
+        assertTrue(json.contains("\"branch_changed\""))
     }
 
     fun testGenerateJsonIncludesEventCount() {

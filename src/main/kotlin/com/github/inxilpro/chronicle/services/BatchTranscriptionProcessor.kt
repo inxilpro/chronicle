@@ -45,6 +45,17 @@ class BatchTranscriptionProcessor(
             RegexOption.IGNORE_CASE
         )
 
+        private val FILLER_PATTERN = Regex(
+            """^\s*[-–—]?\s*(?:um|uh|ah|oh|hmm|hm|mm|mhm|uh-huh|yeah|yep|yup|nah|nope|ok|okay|so|well|like|right|sure|basically|anyway|actually|let's see(?: here)?|thank you|thanks|you know|i mean|i see|i think|and|but|the)\s*[.,!?…]*\s*$""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // Parenthetical annotations like "(sighs)", "(laughs)", "(clears throat)"
+        private val PARENTHETICAL_PATTERN = Regex(
+            """^\s*\([\w\s]+\)\s*$""",
+            RegexOption.IGNORE_CASE
+        )
+
         private fun isSilenceMarker(text: String): Boolean {
             return text in SILENCE_MARKERS || text.lowercase().let {
                 it.startsWith("[silence") || it.startsWith("(silence") ||
@@ -55,6 +66,13 @@ class BatchTranscriptionProcessor(
 
         private fun isNonSpeechAnnotation(text: String): Boolean {
             return NON_SPEECH_PATTERN.matches(text)
+        }
+
+        internal fun isFillerOrNoise(text: String): Boolean {
+            val trimmed = text.trim()
+            val wordCount = trimmed.split("\\s+".toRegex()).size
+            if (wordCount > 3) return false
+            return FILLER_PATTERN.matches(trimmed) || PARENTHETICAL_PATTERN.matches(trimmed)
         }
     }
 
@@ -167,19 +185,15 @@ class BatchTranscriptionProcessor(
                 for (i in 0 until numSegments) {
                     val text = whisper.fullGetSegmentText(context, i)?.trim() ?: continue
                     if (text.isEmpty() || text.isBlank() || isSilenceMarker(text) || isNonSpeechAnnotation(text)) continue
+                    if (isFillerOrNoise(text)) continue
 
                     val startTime = whisper.fullGetSegmentTimestamp0(context, i)
-                    val endTime = whisper.fullGetSegmentTimestamp1(context, i)
-                    val durationMs = ((endTime - startTime) * 10).toLong()
 
                     val segmentTimestamp = chunkTimestamp.plusMillis(startTime * 10)
 
                     transcriptService.log(
                         AudioTranscriptionEvent(
                             transcriptionText = text,
-                            durationMs = durationMs,
-                            language = "en",
-                            confidence = 0.9f,
                             timestamp = segmentTimestamp
                         ),
                         allowBackfill = true

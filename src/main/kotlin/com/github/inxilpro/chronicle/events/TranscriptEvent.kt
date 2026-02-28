@@ -10,11 +10,10 @@ sealed interface TranscriptEvent {
 
 data class FileOpenedEvent(
     val path: String,
-    val isInitial: Boolean = false,
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "file_opened"
-    override fun summary() = "Opened ${path.substringAfterLast("/")}" + if (isInitial) " (initial)" else ""
+    override fun summary() = "Opened ${path.substringAfterLast("/")}"
 }
 
 data class FileClosedEvent(
@@ -32,14 +31,6 @@ data class FileSelectedEvent(
 ) : TranscriptEvent {
     override val type: String = "file_selected"
     override fun summary() = "Selected ${path.substringAfterLast("/")}"
-}
-
-data class RecentFileEvent(
-    val path: String,
-    override val timestamp: Instant = Instant.now()
-) : TranscriptEvent {
-    override val type: String = "recent_file"
-    override fun summary() = "Recent: ${path.substringAfterLast("/")}"
 }
 
 data class SelectionEvent(
@@ -70,7 +61,6 @@ data class VisibleAreaEvent(
     val path: String,
     val startLine: Int,
     val endLine: Int,
-    val contentDescription: String,
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "visible_area"
@@ -148,10 +138,7 @@ data class RefactoringUndoEvent(
 
 data class AudioTranscriptionEvent(
     val transcriptionText: String,
-    val durationMs: Long,
-    val language: String,
-    val confidence: Float,
-    val speakerSegment: Int? = null,
+    val confidence: Float? = null,
     override val timestamp: Instant = Instant.now()
 ) : TranscriptEvent {
     override val type: String = "audio_transcription"

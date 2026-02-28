@@ -10,6 +10,7 @@ data class TranscriptExport(
 
 data class SessionMetadata(
     val projectName: String,
+    val projectRoot: String?,
     val sessionStart: Instant,
     val exportedAt: Instant,
     val eventCount: Int,
