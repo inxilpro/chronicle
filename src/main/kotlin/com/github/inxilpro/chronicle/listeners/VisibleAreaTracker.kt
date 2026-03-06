@@ -54,7 +54,7 @@ class VisibleAreaTracker(
             pendingJobs[editor]?.cancel(false)
 
             // Capture visible range data immediately on the EDT
-            val visibleArea = event.newRectangle ?: return@VisibleAreaListener
+            val visibleArea = event.newRectangle
             val document = editor.document
             val file = FileDocumentManager.getInstance().getFile(document) ?: return@VisibleAreaListener
 
