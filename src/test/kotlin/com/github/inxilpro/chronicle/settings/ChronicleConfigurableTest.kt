@@ -11,6 +11,15 @@ class ChronicleConfigurableTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         settings = project.service<ChronicleSettings>()
+        // Reset settings to default state before each test
+        settings.exportFormat = ExportFormat.MARKDOWN
+        settings.promptTemplates.clear()
+        settings.promptTemplates.add(PromptTemplate(
+            name = ChronicleSettings.DEFAULT_TEMPLATE_NAME,
+            content = ChronicleSettings.DEFAULT_MARKDOWN_PROMPT
+        ))
+        settings.selectedTemplateId = settings.promptTemplates.first().id
+        settings.showWaveformVisualization = false
         configurable = ChronicleConfigurable(project)
     }
 

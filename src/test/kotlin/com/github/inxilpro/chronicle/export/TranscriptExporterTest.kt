@@ -4,6 +4,7 @@ import com.github.inxilpro.chronicle.events.*
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.github.inxilpro.chronicle.settings.ChronicleSettings
 import com.github.inxilpro.chronicle.settings.ExportFormat
+import com.github.inxilpro.chronicle.settings.PromptTemplate
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
@@ -17,6 +18,14 @@ class TranscriptExporterTest : BasePlatformTestCase() {
         super.setUp()
         transcriptService = project.service<ActivityTranscriptService>()
         settings = project.service<ChronicleSettings>()
+        // Reset settings to default state before each test
+        settings.exportFormat = ExportFormat.MARKDOWN
+        settings.promptTemplates.clear()
+        settings.promptTemplates.add(PromptTemplate(
+            name = ChronicleSettings.DEFAULT_TEMPLATE_NAME,
+            content = ChronicleSettings.DEFAULT_MARKDOWN_PROMPT
+        ))
+        settings.selectedTemplateId = settings.promptTemplates.first().id
         exporter = TranscriptExporter.getInstance(project)
         transcriptService.startLogging()
         transcriptService.resetSession()

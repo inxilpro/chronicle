@@ -5,6 +5,18 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 class PromptTemplateTest : BasePlatformTestCase() {
 
+    override fun setUp() {
+        super.setUp()
+        // Reset settings to default state before each test
+        val settings = project.service<ChronicleSettings>()
+        settings.promptTemplates.clear()
+        settings.promptTemplates.add(PromptTemplate(
+            name = ChronicleSettings.DEFAULT_TEMPLATE_NAME,
+            content = ChronicleSettings.DEFAULT_MARKDOWN_PROMPT
+        ))
+        settings.selectedTemplateId = settings.promptTemplates.first().id
+    }
+
     fun testTemplateContentSurvivesMultipleSettingsAccesses() {
         val settings = project.service<ChronicleSettings>()
 
