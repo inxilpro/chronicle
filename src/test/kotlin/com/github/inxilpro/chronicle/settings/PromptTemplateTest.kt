@@ -129,7 +129,7 @@ class PromptTemplateTest : BasePlatformTestCase() {
         settings.promptTemplates.add(secondTemplate)
         settings.selectedTemplateId = secondTemplate.id
 
-        assertNotEquals(firstId, settings.selectedTemplateId)
+        assertFalse("Selected ID should have changed", firstId == settings.selectedTemplateId)
         assertEquals(secondTemplate.id, settings.selectedTemplateId)
     }
 
