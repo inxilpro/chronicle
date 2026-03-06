@@ -154,8 +154,21 @@ class ChroniclePanel(private val project: Project) : JPanel(BorderLayout()), Dis
             service.resetSession()
         }
 
-        exportButton.addActionListener {
-            TranscriptExporter.getInstance(project).export()
+        exportButton.addActionListener { e ->
+            val templates = settings.promptTemplates
+            if (templates.size <= 1 || settings.exportFormat == com.github.inxilpro.chronicle.settings.ExportFormat.JSON) {
+                TranscriptExporter.getInstance(project).export()
+            } else {
+                val popup = JPopupMenu()
+                templates.forEach { template ->
+                    popup.add(javax.swing.JMenuItem(template.name).apply {
+                        addActionListener {
+                            TranscriptExporter.getInstance(project).export(template.id)
+                        }
+                    })
+                }
+                popup.show(exportButton, 0, exportButton.height)
+            }
         }
 
         audioToggleButton.addActionListener {

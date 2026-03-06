@@ -4,6 +4,7 @@ import com.github.inxilpro.chronicle.events.*
 import com.github.inxilpro.chronicle.services.ActivityTranscriptService
 import com.github.inxilpro.chronicle.settings.ChronicleSettings
 import com.github.inxilpro.chronicle.settings.ExportFormat
+import com.github.inxilpro.chronicle.settings.PromptTemplate
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
@@ -17,6 +18,14 @@ class TranscriptExporterTest : BasePlatformTestCase() {
         super.setUp()
         transcriptService = project.service<ActivityTranscriptService>()
         settings = project.service<ChronicleSettings>()
+        // Reset settings to default state before each test
+        settings.exportFormat = ExportFormat.MARKDOWN
+        settings.promptTemplates.clear()
+        settings.promptTemplates.add(PromptTemplate(
+            name = ChronicleSettings.DEFAULT_TEMPLATE_NAME,
+            content = ChronicleSettings.DEFAULT_MARKDOWN_PROMPT
+        ))
+        settings.selectedTemplateId = settings.promptTemplates.first().id
         exporter = TranscriptExporter.getInstance(project)
         transcriptService.startLogging()
         transcriptService.resetSession()
@@ -111,7 +120,7 @@ class TranscriptExporterTest : BasePlatformTestCase() {
 
     fun testMarkdownExportReplacesPlaceholder() {
         settings.exportFormat = ExportFormat.MARKDOWN
-        settings.markdownPromptTemplate = "Before {{SESSION_JSON}} After"
+        settings.getSelectedTemplate().content = "Before {{SESSION_JSON}} After"
         transcriptService.log(FileOpenedEvent(path = "/test/file.kt"))
 
         val content = exporter.generateExportContent()
@@ -170,5 +179,57 @@ class TranscriptExporterTest : BasePlatformTestCase() {
         val json = exporter.generateJson()
 
         assertTrue(json.contains("\"eventCount\""))
+    }
+
+    fun testGenerateExportContentWithSpecificTemplate() {
+        settings.exportFormat = ExportFormat.MARKDOWN
+
+        val template1 = settings.getSelectedTemplate()
+        template1.content = "Template 1: {{SESSION_JSON}}"
+
+        val template2 = com.github.inxilpro.chronicle.settings.PromptTemplate(
+            name = "Template 2",
+            content = "Template 2: {{SESSION_JSON}}"
+        )
+        settings.promptTemplates.add(template2)
+
+        transcriptService.log(FileOpenedEvent(path = "/test/file.kt"))
+
+        // Export with template 2
+        val content = exporter.generateExportContent(template2)
+        assertTrue(content.startsWith("Template 2:"))
+    }
+
+    fun testGenerateExportContentUsesSelectedTemplateByDefault() {
+        settings.exportFormat = ExportFormat.MARKDOWN
+
+        val template = settings.getSelectedTemplate()
+        template.content = "Selected: {{SESSION_JSON}}"
+
+        transcriptService.log(FileOpenedEvent(path = "/test/file.kt"))
+
+        val content = exporter.generateExportContent()
+        assertTrue(content.startsWith("Selected:"))
+    }
+
+    fun testExportWithMultipleTemplatesUsesCorrectOne() {
+        settings.exportFormat = ExportFormat.MARKDOWN
+
+        val template1 = settings.getSelectedTemplate()
+        template1.content = "First: {{SESSION_JSON}}"
+
+        val template2 = com.github.inxilpro.chronicle.settings.PromptTemplate(
+            name = "Second",
+            content = "Second: {{SESSION_JSON}}"
+        )
+        settings.promptTemplates.add(template2)
+
+        // Switch selection to template2
+        settings.selectedTemplateId = template2.id
+
+        transcriptService.log(FileOpenedEvent(path = "/test/file.kt"))
+
+        val content = exporter.generateExportContent()
+        assertTrue(content.startsWith("Second:"))
     }
 }
