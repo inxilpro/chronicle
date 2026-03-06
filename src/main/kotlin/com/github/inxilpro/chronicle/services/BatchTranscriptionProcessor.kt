@@ -46,7 +46,7 @@ class BatchTranscriptionProcessor(
         )
 
         private val FILLER_PATTERN = Regex(
-            """^\s*[-–—]?\s*(?:um|uh|ah|oh|hmm|hm|mm|mhm|uh-huh|yeah|yep|yup|nah|nope|ok|okay|so|well|like|right|sure|basically|anyway|actually|let's see(?: here)?|thank you|thanks|you know|i mean|i see|i think|and|but|the)\s*[.,!?…]*\s*$""",
+            """^\s*[-–—]?\s*(?:um|uh|ah|oh|hmm|hm|mm|mhm|uh-huh|yeah|yep|yup|nah|nope|ok|okay|so(?: basically)?|well|like|right|sure|basically|anyway|actually|let's see(?: here)?|thank you|thanks|you know|i mean|i see|i think|and|but|the)\s*[.,!?…]*\s*$""",
             RegexOption.IGNORE_CASE
         )
 
