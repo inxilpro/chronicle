@@ -69,8 +69,9 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
 
     fun log(event: TranscriptEvent, allowBackfill: Boolean = false) {
         if (!isLogging && !allowBackfill) return
-        events.add(event)
-        thisLogger().debug("Logged event: ${event.type} at ${event.timestamp}")
+        val filteredEvent = PhileasFilteringService.getInstance(project).filterEvent(event)
+        events.add(filteredEvent)
+        thisLogger().debug("Logged event: ${filteredEvent.type} at ${filteredEvent.timestamp}")
         notifyListeners()
     }
 
