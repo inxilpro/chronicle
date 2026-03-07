@@ -17,6 +17,7 @@
         <projectService serviceImplementation="com.github.inxilpro.chronicle.services.ActivityTranscriptService"/>
         <projectService serviceImplementation="com.github.inxilpro.chronicle.services.AudioTranscriptionService"/>
         <projectService serviceImplementation="com.github.inxilpro.chronicle.services.TranscriptExportService"/>
+        <projectService serviceImplementation="com.github.inxilpro.chronicle.services.PhileasFilteringService"/>
         <projectService serviceImplementation="com.github.inxilpro.chronicle.settings.ChronicleSettings"/>
         <projectConfigurable
             parentId="tools"
