@@ -136,8 +136,6 @@ class PhileasFilteringServiceTest : BasePlatformTestCase() {
     fun testFilterAudioTranscriptionEvent() {
         val event = AudioTranscriptionEvent(
             transcriptionText = "The API key is AKIAIOSFODNN7EXAMPLE",
-            durationMs = 5000,
-            language = "en",
             confidence = 0.95f,
             timestamp = Instant.now()
         )
@@ -170,7 +168,6 @@ class PhileasFilteringServiceTest : BasePlatformTestCase() {
     fun testNonTextEventsPassThrough() {
         val event = FileOpenedEvent(
             path = "/project/src/Main.kt",
-            isInitial = false,
             timestamp = Instant.now()
         )
 
