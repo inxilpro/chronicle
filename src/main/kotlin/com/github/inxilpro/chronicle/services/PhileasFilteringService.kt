@@ -323,7 +323,6 @@ class PhileasFilteringService(private val project: Project) {
             is FileOpenedEvent,
             is FileClosedEvent,
             is FileSelectedEvent,
-            is RecentFileEvent,
             is DocumentChangedEvent,
             is VisibleAreaEvent,
             is FileCreatedEvent,
