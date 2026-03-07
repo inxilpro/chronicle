@@ -12,12 +12,6 @@ class TranscriptEventTest {
     }
 
     @Test
-    fun testFileOpenedEventSummaryWithInitial() {
-        val event = FileOpenedEvent(path = "/project/src/Main.kt", isInitial = true)
-        assertEquals("Opened Main.kt (initial)", event.summary())
-    }
-
-    @Test
     fun testFileClosedEventSummary() {
         val event = FileClosedEvent(path = "/project/src/Utils.kt")
         assertEquals("Closed Utils.kt", event.summary())
@@ -27,12 +21,6 @@ class TranscriptEventTest {
     fun testFileSelectedEventSummary() {
         val event = FileSelectedEvent(path = "/project/src/Config.kt")
         assertEquals("Selected Config.kt", event.summary())
-    }
-
-    @Test
-    fun testRecentFileEventSummary() {
-        val event = RecentFileEvent(path = "/project/src/Recent.kt")
-        assertEquals("Recent: Recent.kt", event.summary())
     }
 
     @Test
@@ -68,8 +56,7 @@ class TranscriptEventTest {
         val event = VisibleAreaEvent(
             path = "/project/src/View.kt",
             startLine = 1,
-            endLine = 50,
-            contentDescription = "class View { ... }"
+            endLine = 50
         )
         assertEquals("Viewing View.kt:1-50", event.summary())
     }
@@ -148,34 +135,26 @@ class TranscriptEventTest {
     @Test
     fun testAudioTranscriptionEventSummary() {
         val event = AudioTranscriptionEvent(
-            transcriptionText = "Hello, this is a test transcription.",
-            durationMs = 5000,
-            language = "en",
-            confidence = 0.95f
+            transcriptionText = "Hello, this is a test transcription."
         )
         assertEquals("\"Hello, this is a test transcription.\"", event.summary())
     }
 
     @Test
-    fun testAudioTranscriptionEventSummaryWithSpeaker() {
+    fun testAudioTranscriptionEventSummaryWithLowConfidence() {
         val event = AudioTranscriptionEvent(
             transcriptionText = "This is speaker one talking.",
-            durationMs = 3000,
-            language = "en",
-            confidence = 0.88f,
-            speakerSegment = 1
+            confidence = 0.3f
         )
         assertEquals("\"This is speaker one talking.\"", event.summary())
+        assertEquals(0.3f, event.confidence)
     }
 
     @Test
     fun testAudioTranscriptionEventSummaryTruncation() {
         val longText = "This is a very long transcription that exceeds one hundred characters and should be truncated with an ellipsis at the end"
         val event = AudioTranscriptionEvent(
-            transcriptionText = longText,
-            durationMs = 10000,
-            language = "en",
-            confidence = 0.92f
+            transcriptionText = longText
         )
         val summary = event.summary()
         assert(summary.startsWith("\"This is a very long transcription"))
@@ -186,11 +165,14 @@ class TranscriptEventTest {
     @Test
     fun testAudioTranscriptionEventType() {
         val event = AudioTranscriptionEvent(
-            transcriptionText = "Test",
-            durationMs = 1000,
-            language = "en",
-            confidence = 0.9f
+            transcriptionText = "Test"
         )
         assertEquals("audio_transcription", event.type)
+    }
+
+    @Test
+    fun testAudioTranscriptionEventConfidenceDefaultsToNull() {
+        val event = AudioTranscriptionEvent(transcriptionText = "Test")
+        assertEquals(null, event.confidence)
     }
 }

@@ -25,12 +25,20 @@ class DebouncedSelectionListener(
     private var pendingJob: ScheduledFuture<*>? = null
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
+    @Volatile
+    private var lastLoggedPath: String? = null
+    @Volatile
+    private var lastLoggedStartLine: Int = -1
+    @Volatile
+    private var lastLoggedEndLine: Int = -1
+    @Volatile
+    private var lastLoggedText: String? = null
+
     override fun selectionChanged(event: IdeaSelectionEvent) {
         val editor = event.editor
         val document = editor.document
         val file = FileDocumentManager.getInstance().getFile(document) ?: return
 
-        // Only track selections in the associated project
         if (editor.project != project) return
 
         pendingJob?.cancel(false)
@@ -43,6 +51,20 @@ class DebouncedSelectionListener(
             val selectedText = selection.selectedText?.take(500)
 
             pendingJob = executor.schedule({
+                // Skip if identical to the last logged selection
+                if (filePath == lastLoggedPath &&
+                    startLine == lastLoggedStartLine &&
+                    endLine == lastLoggedEndLine &&
+                    selectedText == lastLoggedText
+                ) {
+                    return@schedule
+                }
+
+                lastLoggedPath = filePath
+                lastLoggedStartLine = startLine
+                lastLoggedEndLine = endLine
+                lastLoggedText = selectedText
+
                 transcriptService.log(SelectionEvent(
                     path = filePath,
                     startLine = startLine,

@@ -1,7 +1,5 @@
 package com.github.inxilpro.chronicle.services
 
-import com.github.inxilpro.chronicle.events.FileOpenedEvent
-import com.github.inxilpro.chronicle.events.RecentFileEvent
 import com.github.inxilpro.chronicle.events.TranscriptEvent
 import com.github.inxilpro.chronicle.listeners.DebouncedSelectionListener
 import com.github.inxilpro.chronicle.listeners.DocumentChangeListener
@@ -14,17 +12,11 @@ import com.github.inxilpro.chronicle.shell.ShellHistoryTracker
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
-import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileEditor.impl.EditorHistoryManager
 import com.intellij.openapi.project.Project
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ScheduledFuture
 
-/**
- * Central service that coordinates all listeners, aggregates events into a timestamped log,
- * and provides export functionality for LLM consumption.
- */
 @Service(Service.Level.PROJECT)
 class ActivityTranscriptService(private val project: Project) : Disposable {
 
@@ -83,13 +75,14 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
 
     fun getProjectName(): String = project.name
 
+    fun getProjectBasePath(): String? = project.basePath
+
     fun resetSession() {
         events.clear()
         hasInitializedSession = true
         sessionStart = Instant.now()
         sessionGitBranch = GitBranchHelper.getCurrentBranch(project)
         thisLogger().info("Session reset for project: ${project.name}")
-        captureInitialState()
         notifyListeners()
     }
 
@@ -99,7 +92,6 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
             hasInitializedSession = true
             sessionStart = Instant.now()
             sessionGitBranch = GitBranchHelper.getCurrentBranch(project)
-            captureInitialState()
         }
         shellHistoryTracker?.startTracking(sessionStart)
         thisLogger().info("Logging started for project: ${project.name}")
@@ -133,27 +125,6 @@ class ActivityTranscriptService(private val project: Project) : Disposable {
     fun cancelDebounceTimer(eventType: String) {
         debounceTimers[eventType]?.cancel(false)
         debounceTimers.remove(eventType)
-    }
-
-    private fun captureInitialState() {
-        val fem = FileEditorManager.getInstance(project)
-
-        fem.openFiles.forEach { file ->
-            log(FileOpenedEvent(
-                path = file.path,
-                isInitial = true
-            ))
-        }
-        thisLogger().info("Captured ${fem.openFiles.size} open files")
-
-        val recentFiles = EditorHistoryManager.getInstance(project)
-            .fileList
-            .take(20)
-
-        recentFiles.forEach { file ->
-            log(RecentFileEvent(path = file.path))
-        }
-        thisLogger().info("Captured ${recentFiles.size} recent files")
     }
 
     companion object {

@@ -15,7 +15,15 @@ class FileActivityListener(private val project: Project) : FileEditorManagerList
     private val transcriptService: ActivityTranscriptService
         get() = ActivityTranscriptService.getInstance(project)
 
+    // Track last opened file to suppress redundant file_selected events
+    @Volatile
+    private var lastOpenedPath: String? = null
+    @Volatile
+    private var lastOpenedTime: Long = 0
+
     override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
+        lastOpenedPath = file.path
+        lastOpenedTime = System.nanoTime()
         transcriptService.log(FileOpenedEvent(path = file.path))
     }
 
@@ -25,6 +33,12 @@ class FileActivityListener(private val project: Project) : FileEditorManagerList
 
     override fun selectionChanged(event: FileEditorManagerEvent) {
         event.newFile?.let { file ->
+            // Suppress file_selected when it immediately follows a file_opened for the same file
+            val elapsed = System.nanoTime() - lastOpenedTime
+            if (file.path == lastOpenedPath && elapsed < 50_000_000L) { // 50ms
+                return
+            }
+
             transcriptService.log(FileSelectedEvent(
                 path = file.path,
                 previousPath = event.oldFile?.path

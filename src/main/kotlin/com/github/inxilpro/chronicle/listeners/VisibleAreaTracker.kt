@@ -18,10 +18,12 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 
 class VisibleAreaTracker(
     private val project: Project,
-    private val debounceMs: Long = 500
+    private val debounceMs: Long = 500,
+    private val lineThreshold: Int = 5
 ) : FileEditorManagerListener, Disposable {
 
     private val transcriptService: ActivityTranscriptService
@@ -30,6 +32,9 @@ class VisibleAreaTracker(
     private val pendingJobs = ConcurrentHashMap<Editor, ScheduledFuture<*>>()
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
     private val attachedListeners = ConcurrentHashMap<Editor, VisibleAreaListener>()
+
+    private data class VisibleRange(val startLine: Int, val endLine: Int)
+    private val lastLoggedRange = ConcurrentHashMap<String, VisibleRange>()
 
     override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
         source.getEditors(file).forEach { fileEditor ->
@@ -66,14 +71,21 @@ class VisibleAreaTracker(
             if (startLine > endLine) return@VisibleAreaListener
 
             val filePath = file.path
-            val contentDescription = "Lines $startLine-$endLine"
+
+            val last = lastLoggedRange[filePath]
+            if (last != null &&
+                abs(last.startLine - startLine) < lineThreshold &&
+                abs(last.endLine - endLine) < lineThreshold
+            ) {
+                return@VisibleAreaListener
+            }
 
             pendingJobs[editor] = executor.schedule({
+                lastLoggedRange[filePath] = VisibleRange(startLine, endLine)
                 transcriptService.log(VisibleAreaEvent(
                     path = filePath,
                     startLine = startLine,
-                    endLine = endLine,
-                    contentDescription = contentDescription
+                    endLine = endLine
                 ))
             }, debounceMs, TimeUnit.MILLISECONDS)
         }
@@ -99,13 +111,21 @@ class VisibleAreaTracker(
         val startLine = document.getLineNumber(visibleRange.startOffset) + 1
         val endLine = document.getLineNumber(visibleRange.endOffset) + 1
 
-        val contentDescription = "Lines $startLine-$endLine"
+        val filePath = file.path
 
+        val last = lastLoggedRange[filePath]
+        if (last != null &&
+            abs(last.startLine - startLine) < lineThreshold &&
+            abs(last.endLine - endLine) < lineThreshold
+        ) {
+            return
+        }
+
+        lastLoggedRange[filePath] = VisibleRange(startLine, endLine)
         transcriptService.log(VisibleAreaEvent(
-            path = file.path,
+            path = filePath,
             startLine = startLine,
-            endLine = endLine,
-            contentDescription = contentDescription
+            endLine = endLine
         ))
     }
 
@@ -121,6 +141,7 @@ class VisibleAreaTracker(
         pendingJobs.values.forEach { it.cancel(true) }
         pendingJobs.clear()
         attachedListeners.clear()
+        lastLoggedRange.clear()
         executor.shutdownNow()
     }
 
@@ -131,7 +152,6 @@ class VisibleAreaTracker(
             project.messageBus.connect(parentDisposable)
                 .subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, tracker)
 
-            // Attach to any already-open editors
             tracker.attachToExistingEditors()
 
             Disposer.register(parentDisposable, tracker)

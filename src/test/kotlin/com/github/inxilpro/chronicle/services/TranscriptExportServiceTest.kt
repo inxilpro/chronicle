@@ -23,9 +23,9 @@ class TranscriptExportServiceTest : BasePlatformTestCase() {
             assertTrue(json.contains("\"events\":"))
             assertTrue(json.contains("\"session\""))
             assertTrue(json.contains("\"projectName\""))
+            assertTrue(json.contains("\"projectRoot\""))
             assertTrue(json.contains("\"sessionStart\""))
             assertTrue(json.contains("\"exportedAt\""))
-            assertTrue(json.contains("\"gitBranch\":"))
         } finally {
             tempFile.delete()
         }
@@ -45,7 +45,6 @@ class TranscriptExportServiceTest : BasePlatformTestCase() {
             val json = tempFile.readText()
             assertTrue(json.contains("\"type\": \"file_opened\""))
             assertTrue(json.contains("\"type\": \"file_closed\""))
-            assertTrue(json.contains("\"/test.kt\""))
         } finally {
             tempFile.delete()
         }
@@ -105,14 +104,34 @@ class TranscriptExportServiceTest : BasePlatformTestCase() {
             service.exportToJson(tempFile)
 
             val json = tempFile.readText()
-            val firstIndex = json.indexOf("/first.kt")
-            val secondIndex = json.indexOf("/second.kt")
-            val thirdIndex = json.indexOf("/third.kt")
+            val firstIndex = json.indexOf("first.kt")
+            val secondIndex = json.indexOf("second.kt")
+            val thirdIndex = json.indexOf("third.kt")
 
             assertTrue("first.kt should appear before second.kt", firstIndex < secondIndex)
             assertTrue("second.kt should appear before third.kt", secondIndex < thirdIndex)
         } finally {
             tempFile.delete()
         }
+    }
+
+    fun testPathsRelativizedInExport() {
+        val transcriptService = project.service<ActivityTranscriptService>()
+        transcriptService.startLogging()
+
+        val basePath = project.basePath
+        assertNotNull(basePath)
+        transcriptService.log(FileOpenedEvent("$basePath/src/Main.kt"))
+
+        val service = project.service<TranscriptExportService>()
+        val json = service.toJson()
+
+        assertTrue("Should contain relative path", json.contains("src/Main.kt"))
+        assertTrue("Should contain projectRoot in session", json.contains("\"projectRoot\""))
+    }
+
+    fun testStripPrefix() {
+        assertEquals("src/Main.kt", TranscriptExportService.stripPrefix("/home/user/project/src/Main.kt", "/home/user/project/"))
+        assertEquals("/other/path.kt", TranscriptExportService.stripPrefix("/other/path.kt", "/home/user/project/"))
     }
 }
