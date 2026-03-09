@@ -39,7 +39,7 @@ dependencies {
     implementation("io.github.givimad:whisper-jni:1.7.1")
 
     // Phileas for PII/secret redaction
-    implementation("ai.philterd:phileas:3.1.0")
+    implementation("ai.philterd:phileas:3.2.0")
 
     // Gson for JSON serialization
     implementation(libs.gson)
